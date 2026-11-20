@@ -370,7 +370,7 @@ Estructura sugerida (ajustable):
 | R6 | Montículo máximo indexado | top-k con montículo auxiliar | | ✅ |
 | R7 | _pendiente_ | _pendiente_ | | ⬜ |
 | R8 | _pendiente_ | _pendiente_ | | ⬜ |
-| R9 | _pendiente_ | _pendiente_ | | ⬜ |
+| R9 | Dos pilas (listas como arreglo) | Apilar el cambio; deshacer = aplicar la operación inversa | Sebastian Pereira | ✅ |
 | R10 | _pendiente_ | _pendiente_ | | ⬜ |
 
 ### Decisiones transversales
@@ -413,7 +413,20 @@ _(Completar con la plantilla de arriba a medida que el grupo decida.)_
 ### Interacción de R4–R6 con R7 y R8
 - `cerrar` saca la estación del montículo y `reabrir` la vuelve a meter (O(log n)).
 - `quitar_parada` resta a la estación los buses de esa ruta; `agregar_parada` se los devuelve si esa ruta tenía horarios ahí (una parada nueva sin horarios suma 0).
-- `deshacer`/`rehacer` (R9) debe llamar a `cerrar`, `reabrir`, `agregar_parada` y `quitar_parada` para que el ranking siga al día.
+- `deshacer`/`rehacer` (R9) usan los mismos métodos internos que `cerrar`, `reabrir`, `agregar_parada` y `quitar_parada`, así que el ranking sigue al día.
+
+### R9 · Deshacer y rehacer — `red.deshacer()`, `red.rehacer()`
+
+- **Estructura:** **dos pilas** hechas con listas usadas como arreglo (el tope es el final; solo `append` y `pop()` del final): `_hechos` y `_deshechos`.
+- **Algoritmo:** cada `cerrar`, `reabrir`, `agregar_parada` o `quitar_parada` **que sí cambió algo** (devolvió `True`) se apila en `_hechos` y **vacía** `_deshechos` (un cambio nuevo borra lo que había para rehacer). `deshacer` saca el tope de `_hechos`, aplica la **operación inversa** y lo pasa a `_deshechos`; `rehacer` hace lo contrario. Las pilas garantizan el orden correcto (último en entrar, primero en salir).
+  - Inversas: `cerrar` ↔ `reabrir`; `agregar_parada` ↔ `quitar_parada`. Para deshacer un `quitar_parada` se guarda **cuál era la parada anterior** (o `None` si era la primera de la ruta) y se vuelve a insertar ahí.
+  - Las inversas usan métodos internos (`_cambiar_estado`, `_agregar`, `_quitar`) que no tocan el historial, así deshacer no se registra como un cambio nuevo.
+- **Retorno:** la descripción del cambio deshecho/rehecho, por ejemplo `("cerrar", "CALLE 26")`, `("reabrir", nombre)`, `("agregar_parada", ruta, nueva, despues_de)` o `("quitar_parada", ruta, estacion)`. `None` si no hay nada que deshacer/rehacer.
+- **O grande:** O(1) para mover el cambio entre pilas + el costo de la operación inversa: **O(log n)** (*n* = estaciones abiertas) por reubicar la estación en el montículo del ranking. `quitar_parada` suma O(r), *r* = rutas que pasan por esa estación.
+- **Descartado:**
+  - Guardar una **copia de toda la red** en cada cambio: deshacer sería trivial, pero cada cambio costaría O(n + tamaño de las rutas) en tiempo y memoria, y los operadores editan "todo el tiempo".
+  - Una **sola lista con un índice** de posición actual: funciona igual, pero borrar lo de rehacer obliga a recortar la lista; con dos pilas es solo reiniciar `_deshechos`.
+- **Bordes:** historial vacío → `None`; operaciones fallidas (estación inexistente, ya cerrada, parada que no está, ruta inexistente) no se registran; deshacer/rehacer varias veces seguidas respeta el orden; quitar la primera o la última parada de una ruta, o vaciarla, también se deshace.
 
 
 ---

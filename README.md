@@ -338,6 +338,13 @@ Estructura sugerida (ajustable):
 >
 > Incluir también cómo generar los CSV desde el GTFS y cómo instalar dependencias del front/conversión (nunca del motor).
 
+Ya disponible (desde la raíz del repositorio, sin instalar nada):
+
+```bash
+python front/panel_rendimiento.py      # R11: panel de rendimiento (en Windows también: py ...)
+python -m unittest discover tests      # pruebas de R9, R10 y R11
+```
+
 ---
 
 ## Decisiones de diseño (R12)
@@ -443,6 +450,15 @@ _(Completar con la plantilla de arriba a medida que el grupo decida.)_
   - Una cola de prioridad (montículo) por minuto de llegada: también O(P log P), pero más compleja que ordenar una sola vez, porque las llegadas se conocen todas desde el inicio.
 - **Bordes:** lista vacía → `[]`; `frecuencia` o `capacidad` ≤ 0, `None` o una llegada inválida → `None`; huecos largos sin pasajeros; empates; llegadas desordenadas.
 
+### R11 · Panel de rendimiento — `py front/panel_rendimiento.py`
+
+- **Dónde:** `front/rendimiento.py` genera las redes y mide, sin interfaz (así se puede probar); `front/panel_rendimiento.py` es la ventana tkinter (rojo, amarillo y blanco). Solo usa la librería estándar. Está fuera de `motor/`: no contiene reglas del sistema, solo llama al motor.
+- **Cómo mide:** el mismo método del script del profesor. Genera redes sintéticas con el formato de los CSV, de *n*, 2*n*, 4*n*… estaciones (n // 4 rutas de 12 paradas, 8 viajes por ruta). Corre cada operación muchas veces con entradas al azar y se queda con la mejor de 5 tandas para quitar ruido. Lo que no depende de *n* (k = 10, rangos de 20 nombres, horarios por estación) queda fijo.
+- **Qué muestra:** una tabla con la O grande esperada, el crecimiento total medido contra el esperado y si coinciden. Al elegir una operación aparece la gráfica de tiempo contra *n* (línea roja = medido, punteada = la curva esperada escalada al primer punto), la razón t(2n)/t(n) de cada duplicación y la explicación. Si no coincide, la explicación aparece ahí mismo, como pide el enunciado.
+- **Criterio "coincide":** el crecimiento total, del primer al último tamaño, no supera 1,5 veces el esperado. Se compara el total y no cada duplicación porque en redes pequeñas una sola duplicación tiene mucho ruido.
+- **R5 no se mide** (lo dice el enunciado); aparece en la tabla como "no se mide".
+- **Resultado actual** (n = 250 → 2000): todas las operaciones coinciden. Las O(1) y O(log n) se ven casi planas. La carga y `simular_fila` crecen un poco menos que n log n porque en redes pequeñas pesan más los costos fijos de Python.
+
 
 ---
 
@@ -454,8 +470,9 @@ _(Completar con la plantilla de arriba a medida que el grupo decida.)_
 - [ ] `Red(carpeta)` carga los tres CSV
 - [ ] R1 · R2 · R3
 - [x] R4 · R5 · R6
-- [ ] R7 · R8 · R9 · R10
-- [ ] R11 · Panel de rendimiento
+- [ ] R7 · R8 · R9 · R10 _(R9 y R10 listos; falta documentar R7 y R8)_
+- [x] R11 · Panel de rendimiento (`py front/panel_rendimiento.py`)
+- [x] Pruebas: `py -m unittest discover tests`
 - [ ] R12 · Decisiones documentadas
 - [ ] App arranca con un solo comando
 - [ ] `integrantes.md` completo

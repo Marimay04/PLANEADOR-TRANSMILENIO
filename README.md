@@ -371,7 +371,7 @@ Estructura sugerida (ajustable):
 | R7 | _pendiente_ | _pendiente_ | | ⬜ |
 | R8 | _pendiente_ | _pendiente_ | | ⬜ |
 | R9 | Dos pilas (listas como arreglo) | Apilar el cambio; deshacer = aplicar la operación inversa | Sebastian Pereira | ✅ |
-| R10 | _pendiente_ | _pendiente_ | | ⬜ |
+| R10 | Cola FIFO sobre arreglo con índice al frente | Merge sort de llegadas + simulación bus a bus saltando buses vacíos | Sebastian Pereira | ✅ |
 
 ### Decisiones transversales
 
@@ -427,6 +427,21 @@ _(Completar con la plantilla de arriba a medida que el grupo decida.)_
   - Guardar una **copia de toda la red** en cada cambio: deshacer sería trivial, pero cada cambio costaría O(n + tamaño de las rutas) en tiempo y memoria, y los operadores editan "todo el tiempo".
   - Una **sola lista con un índice** de posición actual: funciona igual, pero borrar lo de rehacer obliga a recortar la lista; con dos pilas es solo reiniciar `_deshechos`.
 - **Bordes:** historial vacío → `None`; operaciones fallidas (estación inexistente, ya cerrada, parada que no está, ruta inexistente) no se registran; deshacer/rehacer varias veces seguidas respeta el orden; quitar la primera o la última parada de una ruta, o vaciarla, también se deshace.
+
+### R10 · Fila de abordaje — `simular_fila(llegadas, frecuencia, capacidad)`
+
+> ⚠️ **Formato supuesto** (la presentación no lo define; *grupo: confirmar con el enunciado*): `llegadas` son minutos (números o textos `"HH:MM"`), no necesariamente ordenados; los buses salen en `frecuencia`, `2·frecuencia`, …; quien llega justo en el minuto de salida alcanza a subir. **Devuelve la lista de esperas** (minutos) de cada pasajero, en el mismo orden de `llegadas`.
+
+- **Estructura:** **cola FIFO** propia (`motor/fila.py`, clase `Cola`) sobre una lista con un índice al frente: `encolar` = `append`, `desencolar` = avanzar el índice. Ambas O(1).
+- **Algoritmo:**
+  1. Se arman pares `(minuto, posición)` y se ordenan con el `merge_sort` del grupo. La posición desempata (llegan al mismo minuto → va primero el que aparece antes) y permite devolver las esperas en el orden original.
+  2. Bus por bus: entran a la cola todos los que llegaron hasta la salida del bus y suben hasta `capacidad`, en orden de llegada. Si la cola queda vacía, se **salta directo** al primer bus que sale después de la siguiente llegada (no se recorren buses vacíos).
+- **O grande** (*P* = pasajeros): ordenar **O(P log P)**; simular **O(P)**, porque cada pasajero entra y sale de la cola una sola vez y solo se procesan buses que llevan gente (≤ *P*). Total **O(P log P)**. Si la lista ya viniera ordenada, la simulación sola es lineal.
+- **Descartado:**
+  - `list.pop(0)` como cola: cada salida corre toda la lista, O(P) → O(P²) en total. Con cientos de miles de pasajeros no termina a tiempo.
+  - Recorrer **todos** los buses del día uno por uno: O(P + B) con *B* = buses, y si la frecuencia es muy pequeña frente al horario *B* puede ser mucho mayor que *P*.
+  - Una cola de prioridad (montículo) por minuto de llegada: también O(P log P), pero más compleja que ordenar una sola vez, porque las llegadas se conocen todas desde el inicio.
+- **Bordes:** lista vacía → `[]`; `frecuencia` o `capacidad` ≤ 0, `None` o una llegada inválida → `None`; huecos largos sin pasajeros; empates; llegadas desordenadas.
 
 
 ---

@@ -144,10 +144,10 @@ Todo lo que resuelve un requisito vive en el paquete `motor/`. **Fuera del motor
 - `str` y sus métodos
 - Recorrer con `for x in lista`
 - Los módulos `csv`, `time` y `random`
-- `dict` y `set`
 
 ### ❌ Prohibido dentro de `motor/`
 
+- `dict` y `set` (y por lo tanto `csv.DictReader`)
 - `sorted`, `.sort()`, `min` y `max` sobre colecciones
 - `x in lista`, `.index()` y `.count()` para **buscar dentro de una lista**
 - Los módulos `bisect`, `heapq`, `collections`, `functools`
@@ -365,9 +365,9 @@ Estructura sugerida (ajustable):
 | R1 | _pendiente_ | _pendiente_ | | ⬜ |
 | R2 | _pendiente_ | _pendiente_ | | ⬜ |
 | R3 | _pendiente_ | _pendiente_ | | ⬜ |
-| R4 | _pendiente_ | _pendiente_ | | ⬜ |
-| R5 | _pendiente_ | _pendiente_ | | ⬜ |
-| R6 | _pendiente_ | _pendiente_ | | ⬜ |
+| R4 | Tabla hash `ruta\|estacion` → arreglo de horas ordenado | Búsqueda binaria | | ✅ |
+| R5 | Rutas como listas doblemente enlazadas + tabla hash | Dos barridos (atrás desde destino, adelante desde origen) | | ✅ |
+| R6 | Montículo máximo indexado | top-k con montículo auxiliar | | ✅ |
 | R7 | _pendiente_ | _pendiente_ | | ⬜ |
 | R8 | _pendiente_ | _pendiente_ | | ⬜ |
 | R9 | _pendiente_ | _pendiente_ | | ⬜ |
@@ -375,12 +375,46 @@ Estructura sugerida (ajustable):
 
 ### Decisiones transversales
 
-- **Horas mayores a 24:00 del GTFS (ej. `25:10`):** _pendiente: qué hace el grupo y por qué._
+- **Horas mayores a 24:00 del GTFS (ej. `25:10`):** el motor convierte cada hora a minutos (`25:10` → 1510), así que una hora como `25:10` queda después de `23:59`, en el mismo día de servicio, y se devuelve tal como viene en el CSV. Los CSV actuales de `datos/` no traen horas ≥ 24. _(Grupo: confirmar qué hace el script de conversión.)_
 - **Interacción entre R8/R9 y el resto** (cerrar estación afecta R1–R6; todo se puede deshacer): _pendiente._
 
 ### Decisiones por requisito
 
 _(Completar con la plantilla de arriba a medida que el grupo decida.)_
+
+### R4 · Próximo bus — `red.proximo_bus(estacion, ruta, hora)`
+
+- **Estructura:** la `TablaHash` del grupo (encadenamiento) con clave `"ruta|estacion"` → arreglo de horas en minutos, **ordenado una sola vez al cargar** con el `merge_sort` del grupo.
+- **Algoritmo:** búsqueda binaria del primer horario `>= hora`. Un bus que pasa exactamente a la hora pedida cuenta como siguiente.
+- **O grande:** O(1) promedio (hash) + **O(log h)**, donde *h* = número de horarios de esa ruta en esa estación. No depende de *n* (estaciones). Carga: O(H log H), H = filas de horarios.csv.
+- **Descartado:** recorrer todos los horarios (O(h) por consulta) y un BST (también O(log h), pero las horas no cambian nunca, así que un arreglo ordenado es más simple y más rápido).
+- **Bordes:** estación inexistente o cerrada, ruta inexistente, estación que ya no está en la ruta o sin más buses ese día → `None`.
+
+### R5 · Viaje — `red.viaje(origen, destino)`
+
+- **Estructura:** cada ruta es una lista doblemente enlazada; cada estación guarda los nodos de las rutas por donde pasa.
+- **Algoritmo (dos barridos):**
+  1. Desde cada aparición de `destino` se camina **hacia atrás** por su ruta y se guarda en una tabla hash, por estación, la menor distancia hasta `destino` y por cuál ruta.
+  2. Desde cada aparición de `origen` se camina **hacia adelante**: si se llega a `destino` es viaje directo; si la estación está abierta y aparece en la tabla con **otra** ruta, es un transbordo con `d1 + d2` paradas.
+  Se queda el de menos paradas; si empatan, gana el directo.
+- **O grande:** **O(L)** promedio, donde *L* = suma de longitudes de las rutas que pasan por origen y destino. No recorre toda la red.
+- **Descartado:** BFS sobre todo el grafo de estaciones (cuenta paradas, pero no limita a un solo transbordo y recorre mucho más) y probar todos los pares de rutas (O(R²)).
+- **Decisiones:** las estaciones cerradas no sirven para subir, bajar ni transbordar, pero el bus sigue pasando por ellas y cuentan como paradas recorridas. `origen == destino`, estación inexistente o cerrada, o sin viaje → `None`.
+
+### R6 · Ranking — `red.ranking(k)`
+
+- **Estructura:** **montículo máximo indexado** con las estaciones abiertas; cada estación guarda su posición en el arreglo del montículo.
+  Buses por día de una estación = filas de horarios.csv de las rutas que hoy pasan por ella.
+- **Consulta:** se sacan las k mejores **sin modificar** el montículo, con un montículo auxiliar de índices (arranca en la raíz y, al sacar un nodo, mete sus dos hijos) → **O(k log k)**, independiente de *n*.
+- **Actualizaciones:** `cerrar` saca la estación del montículo, `reabrir` la inserta, y `quitar_parada`/`agregar_parada` cambian sus buses y la reubican: **O(log n)** cada una, *n* = estaciones abiertas.
+- **Desempate:** más buses primero; si empatan, orden alfabético.
+- **Descartado:** recorrer todo y ordenar en cada consulta (O(n log n)); un arreglo ordenado mantenido (consulta O(k) pero cerrar/reabrir O(n) por los corrimientos, y `cerrar` también se mide).
+
+### Interacción de R4–R6 con R7 y R8
+- `cerrar` saca la estación del montículo y `reabrir` la vuelve a meter (O(log n)).
+- `quitar_parada` resta a la estación los buses de esa ruta; `agregar_parada` se los devuelve si esa ruta tenía horarios ahí (una parada nueva sin horarios suma 0).
+- `deshacer`/`rehacer` (R9) debe llamar a `cerrar`, `reabrir`, `agregar_parada` y `quitar_parada` para que el ranking siga al día.
+
 
 ---
 
@@ -391,7 +425,7 @@ _(Completar con la plantilla de arriba a medida que el grupo decida.)_
 - [ ] CSV generados en `datos/`
 - [ ] `Red(carpeta)` carga los tres CSV
 - [ ] R1 · R2 · R3
-- [ ] R4 · R5 · R6
+- [x] R4 · R5 · R6
 - [ ] R7 · R8 · R9 · R10
 - [ ] R11 · Panel de rendimiento
 - [ ] R12 · Decisiones documentadas

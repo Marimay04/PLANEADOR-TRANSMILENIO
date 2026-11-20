@@ -57,6 +57,11 @@ class Red:
         self._rutas = TablaHash()
         # R4: "ruta|estacion" -> Horario (horas ordenadas)
         self._horarios = TablaHash()
+        # R9: dos pilas (listas usadas como arreglo, el tope es el final).
+        # Cada elemento es [descripcion, anterior]; 'anterior' solo lo usa
+        # quitar_parada para saber dónde volver a poner la estación.
+        self._hechos = []       # cambios que se pueden deshacer
+        self._deshechos = []    # cambios deshechos que se pueden rehacer
 
         self._cargar_estaciones(_ruta(carpeta, "estaciones.csv"))
         self._cargar_rutas(_ruta(carpeta, "rutas.csv"))
@@ -299,22 +304,41 @@ class Red:
 
     # ---- R7 (base que usan R5 y R6) ----
     def agregar_parada(self, ruta, nueva, despues_de):
-        """True si agregó 'nueva' justo después de 'despues_de'. O(1) promedio."""
+        """True si agregó 'nueva' justo después de 'despues_de'. O(1) promedio
+        (+ O(log n) del ranking). Si cambió algo queda en el historial (R9)."""
+        if despues_de is None:
+            return False        # la API pública siempre pide una parada previa
+        if not self._agregar(ruta, nueva, despues_de):
+            return False
+        self._registrar(("agregar_parada", ruta, nueva, despues_de), None)
+        return True
+
+    def _agregar(self, ruta, nueva, despues_de):
+        """Inserta 'nueva' después de 'despues_de' (None = al inicio de la
+        ruta, solo lo usa deshacer). No toca el historial. O(1) promedio."""
         r = self._rutas.get(ruta)
         info = self._info.get(nueva)
         if r is None or info is None or r.nodo_de.get(nueva) is not None:
             return False
-        anterior = r.nodo_de.get(despues_de)
-        if anterior is None:
-            return False
         nodo = NodoRuta(ruta, info)
-        nodo.ant = anterior
-        nodo.sig = anterior.sig
-        if anterior.sig is not None:
-            anterior.sig.ant = nodo
+        if despues_de is None:              # al inicio
+            nodo.sig = r.cabeza
+            if r.cabeza is not None:
+                r.cabeza.ant = nodo
+            else:
+                r.cola = nodo
+            r.cabeza = nodo
         else:
-            r.cola = nodo
-        anterior.sig = nodo
+            anterior = r.nodo_de.get(despues_de)
+            if anterior is None:
+                return False
+            nodo.ant = anterior
+            nodo.sig = anterior.sig
+            if anterior.sig is not None:
+                anterior.sig.ant = nodo
+            else:
+                r.cola = nodo
+            anterior.sig = nodo
         r.nodo_de.put(nueva, nodo)
         info.nodos.append(nodo)
         # R6: si esa ruta tenía horarios ahí (se quitó y se vuelve a poner)
@@ -324,13 +348,27 @@ class Red:
 
     def quitar_parada(self, ruta, estacion):
         """True si la quitó, False si no estaba. O(1) promedio + O(rutas de
-        esa estación) para sacarla de su lista de nodos."""
+        esa estación) para sacarla de su lista de nodos. Si cambió algo queda
+        en el historial (R9) junto con la parada anterior, para deshacerlo."""
+        anterior = self._quitar(ruta, estacion)
+        if anterior is False:
+            return False
+        self._registrar(("quitar_parada", ruta, estacion), anterior)
+        return True
+
+    def _quitar(self, ruta, estacion):
+        """Saca la estación de la ruta sin tocar el historial. Devuelve el
+        nombre de la parada que tenía antes (None si era la primera) o False
+        si no estaba."""
         r = self._rutas.get(ruta)
         if r is None:
             return False
         nodo = r.nodo_de.get(estacion)
         if nodo is None:
             return False
+        anterior = None
+        if nodo.ant is not None:
+            anterior = nodo.ant.info.nombre
         if nodo.ant is not None:
             nodo.ant.sig = nodo.sig
         else:
@@ -348,7 +386,7 @@ class Red:
         info.nodos = quedan
         # R6: los buses de esa ruta ya no pasan por esta estación
         self._r6_sumar_buses(info, -self._buses_de(ruta, estacion))
-        return True
+        return anterior
 
     def recorrido(self, ruta, al_reves=False):
         """Nombres en orden ([] si la ruta no existe). O(m), m = paradas."""
@@ -371,11 +409,17 @@ class Red:
     # ---- R8 ----
     def cerrar(self, nombre):
         """Cierra la estación. True si cambió; False si no existe o ya estaba cerrada. O(log n)."""
-        return self._cambiar_estado(nombre, False)
+        if not self._cambiar_estado(nombre, False):
+            return False
+        self._registrar(("cerrar", nombre), None)
+        return True
 
     def reabrir(self, nombre):
         """Reabre la estación. True si cambió; False si no existe o ya estaba abierta. O(log n)."""
-        return self._cambiar_estado(nombre, True)
+        if not self._cambiar_estado(nombre, True):
+            return False
+        self._registrar(("reabrir", nombre), None)
+        return True
 
     def _cambiar_estado(self, nombre, abierta):
         actual = self._estaciones.get(nombre)
@@ -391,3 +435,57 @@ class Red:
         else:
             self._heap.sacar(info)
         return True
+
+    # ---- R9 ----
+    # Dos pilas: _hechos (para deshacer) y _deshechos (para rehacer).
+    # Cada cambio guarda su descripción; deshacer aplica la operación inversa
+    # con los métodos internos (_cambiar_estado, _agregar, _quitar), que ya
+    # mantienen al día la tabla hash, las rutas y el montículo del ranking.
+
+    def _registrar(self, descripcion, anterior):
+        """Apila un cambio nuevo y borra lo que había para rehacer. O(1)."""
+        self._hechos.append([descripcion, anterior])
+        self._deshechos = []
+
+    def deshacer(self):
+        """Deshace el último cambio (cerrar, reabrir, agregar_parada o
+        quitar_parada). Devuelve su descripción, por ejemplo
+        ("cerrar", "CALLE 26") o ("quitar_parada", ruta, estacion), o None si
+        no hay nada que deshacer.
+        O(1) de la pila + lo que cueste la operación inversa (O(log n) por el
+        ranking; n = estaciones abiertas)."""
+        if len(self._hechos) == 0:
+            return None
+        cambio = self._hechos.pop()
+        d = cambio[0]
+        tipo = d[0]
+        if tipo == "cerrar":
+            self._cambiar_estado(d[1], True)
+        elif tipo == "reabrir":
+            self._cambiar_estado(d[1], False)
+        elif tipo == "agregar_parada":
+            self._quitar(d[1], d[2])
+        else:                               # quitar_parada
+            self._agregar(d[1], d[2], cambio[1])
+        self._deshechos.append(cambio)
+        return d
+
+    def rehacer(self):
+        """Vuelve a aplicar el último cambio deshecho y devuelve su
+        descripción, o None si no hay nada que rehacer (o si un cambio nuevo
+        borró lo que había). Misma complejidad que deshacer."""
+        if len(self._deshechos) == 0:
+            return None
+        cambio = self._deshechos.pop()
+        d = cambio[0]
+        tipo = d[0]
+        if tipo == "cerrar":
+            self._cambiar_estado(d[1], False)
+        elif tipo == "reabrir":
+            self._cambiar_estado(d[1], True)
+        elif tipo == "agregar_parada":
+            self._agregar(d[1], d[2], d[3])
+        else:                               # quitar_parada
+            cambio[1] = self._quitar(d[1], d[2])
+        self._hechos.append(cambio)         # sin borrar _deshechos
+        return d

@@ -338,6 +338,13 @@ Estructura sugerida (ajustable):
 >
 > Incluir también cómo generar los CSV desde el GTFS y cómo instalar dependencias del front/conversión (nunca del motor).
 
+Ya disponible (desde la raíz del repositorio, sin instalar nada):
+
+```bash
+python front/panel_rendimiento.py      # R11: panel de rendimiento (en Windows también: py ...)
+python -m unittest discover tests      # pruebas de R9, R10 y R11
+```
+
 ---
 
 ## Decisiones de diseño (R12)
@@ -370,8 +377,8 @@ Estructura sugerida (ajustable):
 | R6 | Montículo máximo indexado | top-k con montículo auxiliar | | ✅ |
 | R7 | _pendiente_ | _pendiente_ | | ⬜ |
 | R8 | _pendiente_ | _pendiente_ | | ⬜ |
-| R9 | _pendiente_ | _pendiente_ | | ⬜ |
-| R10 | _pendiente_ | _pendiente_ | | ⬜ |
+| R9 | Dos pilas (listas como arreglo) | Apilar el cambio; deshacer = aplicar la operación inversa | Sebastian Pereira | ✅ |
+| R10 | Cola FIFO sobre arreglo con índice al frente | Merge sort de llegadas + simulación bus a bus saltando buses vacíos | Sebastian Pereira | ✅ |
 
 ### Decisiones transversales
 
@@ -413,7 +420,44 @@ _(Completar con la plantilla de arriba a medida que el grupo decida.)_
 ### Interacción de R4–R6 con R7 y R8
 - `cerrar` saca la estación del montículo y `reabrir` la vuelve a meter (O(log n)).
 - `quitar_parada` resta a la estación los buses de esa ruta; `agregar_parada` se los devuelve si esa ruta tenía horarios ahí (una parada nueva sin horarios suma 0).
-- `deshacer`/`rehacer` (R9) debe llamar a `cerrar`, `reabrir`, `agregar_parada` y `quitar_parada` para que el ranking siga al día.
+- `deshacer`/`rehacer` (R9) usan los mismos métodos internos que `cerrar`, `reabrir`, `agregar_parada` y `quitar_parada`, así que el ranking sigue al día.
+
+### R9 · Deshacer y rehacer — `red.deshacer()`, `red.rehacer()`
+
+- **Estructura:** **dos pilas** hechas con listas usadas como arreglo (el tope es el final; solo `append` y `pop()` del final): `_hechos` y `_deshechos`.
+- **Algoritmo:** cada `cerrar`, `reabrir`, `agregar_parada` o `quitar_parada` **que sí cambió algo** (devolvió `True`) se apila en `_hechos` y **vacía** `_deshechos` (un cambio nuevo borra lo que había para rehacer). `deshacer` saca el tope de `_hechos`, aplica la **operación inversa** y lo pasa a `_deshechos`; `rehacer` hace lo contrario. Las pilas garantizan el orden correcto (último en entrar, primero en salir).
+  - Inversas: `cerrar` ↔ `reabrir`; `agregar_parada` ↔ `quitar_parada`. Para deshacer un `quitar_parada` se guarda **cuál era la parada anterior** (o `None` si era la primera de la ruta) y se vuelve a insertar ahí.
+  - Las inversas usan métodos internos (`_cambiar_estado`, `_agregar`, `_quitar`) que no tocan el historial, así deshacer no se registra como un cambio nuevo.
+- **Retorno:** la descripción del cambio deshecho/rehecho, por ejemplo `("cerrar", "CALLE 26")`, `("reabrir", nombre)`, `("agregar_parada", ruta, nueva, despues_de)` o `("quitar_parada", ruta, estacion)`. `None` si no hay nada que deshacer/rehacer.
+- **O grande:** O(1) para mover el cambio entre pilas + el costo de la operación inversa: **O(log n)** (*n* = estaciones abiertas) por reubicar la estación en el montículo del ranking. `quitar_parada` suma O(r), *r* = rutas que pasan por esa estación.
+- **Descartado:**
+  - Guardar una **copia de toda la red** en cada cambio: deshacer sería trivial, pero cada cambio costaría O(n + tamaño de las rutas) en tiempo y memoria, y los operadores editan "todo el tiempo".
+  - Una **sola lista con un índice** de posición actual: funciona igual, pero borrar lo de rehacer obliga a recortar la lista; con dos pilas es solo reiniciar `_deshechos`.
+- **Bordes:** historial vacío → `None`; operaciones fallidas (estación inexistente, ya cerrada, parada que no está, ruta inexistente) no se registran; deshacer/rehacer varias veces seguidas respeta el orden; quitar la primera o la última parada de una ruta, o vaciarla, también se deshace.
+
+### R10 · Fila de abordaje — `simular_fila(llegadas, frecuencia, capacidad)`
+
+> ⚠️ **Formato supuesto** (la presentación no lo define; *grupo: confirmar con el enunciado*): `llegadas` son minutos (números o textos `"HH:MM"`), no necesariamente ordenados; los buses salen en `frecuencia`, `2·frecuencia`, …; quien llega justo en el minuto de salida alcanza a subir. **Devuelve la lista de esperas** (minutos) de cada pasajero, en el mismo orden de `llegadas`.
+
+- **Estructura:** **cola FIFO** propia (`motor/fila.py`, clase `Cola`) sobre una lista con un índice al frente: `encolar` = `append`, `desencolar` = avanzar el índice. Ambas O(1).
+- **Algoritmo:**
+  1. Se arman pares `(minuto, posición)` y se ordenan con el `merge_sort` del grupo. La posición desempata (llegan al mismo minuto → va primero el que aparece antes) y permite devolver las esperas en el orden original.
+  2. Bus por bus: entran a la cola todos los que llegaron hasta la salida del bus y suben hasta `capacidad`, en orden de llegada. Si la cola queda vacía, se **salta directo** al primer bus que sale después de la siguiente llegada (no se recorren buses vacíos).
+- **O grande** (*P* = pasajeros): ordenar **O(P log P)**; simular **O(P)**, porque cada pasajero entra y sale de la cola una sola vez y solo se procesan buses que llevan gente (≤ *P*). Total **O(P log P)**. Si la lista ya viniera ordenada, la simulación sola es lineal.
+- **Descartado:**
+  - `list.pop(0)` como cola: cada salida corre toda la lista, O(P) → O(P²) en total. Con cientos de miles de pasajeros no termina a tiempo.
+  - Recorrer **todos** los buses del día uno por uno: O(P + B) con *B* = buses, y si la frecuencia es muy pequeña frente al horario *B* puede ser mucho mayor que *P*.
+  - Una cola de prioridad (montículo) por minuto de llegada: también O(P log P), pero más compleja que ordenar una sola vez, porque las llegadas se conocen todas desde el inicio.
+- **Bordes:** lista vacía → `[]`; `frecuencia` o `capacidad` ≤ 0, `None` o una llegada inválida → `None`; huecos largos sin pasajeros; empates; llegadas desordenadas.
+
+### R11 · Panel de rendimiento — `py front/panel_rendimiento.py`
+
+- **Dónde:** `front/rendimiento.py` genera las redes y mide, sin interfaz (así se puede probar); `front/panel_rendimiento.py` es la ventana tkinter (rojo, amarillo y blanco). Solo usa la librería estándar. Está fuera de `motor/`: no contiene reglas del sistema, solo llama al motor.
+- **Cómo mide:** el mismo método del script del profesor. Genera redes sintéticas con el formato de los CSV, de *n*, 2*n*, 4*n*… estaciones (n // 4 rutas de 12 paradas, 8 viajes por ruta). Corre cada operación muchas veces con entradas al azar y se queda con la mejor de 5 tandas para quitar ruido. Lo que no depende de *n* (k = 10, rangos de 20 nombres, horarios por estación) queda fijo.
+- **Qué muestra:** una tabla con la O grande esperada, el crecimiento total medido contra el esperado y si coinciden. Al elegir una operación aparece la gráfica de tiempo contra *n* (línea roja = medido, punteada = la curva esperada escalada al primer punto), la razón t(2n)/t(n) de cada duplicación y la explicación. Si no coincide, la explicación aparece ahí mismo, como pide el enunciado.
+- **Criterio "coincide":** el crecimiento total, del primer al último tamaño, no supera 1,5 veces el esperado. Se compara el total y no cada duplicación porque en redes pequeñas una sola duplicación tiene mucho ruido.
+- **R5 no se mide** (lo dice el enunciado); aparece en la tabla como "no se mide".
+- **Resultado actual** (n = 250 → 2000): todas las operaciones coinciden. Las O(1) y O(log n) se ven casi planas. La carga y `simular_fila` crecen un poco menos que n log n porque en redes pequeñas pesan más los costos fijos de Python.
 
 
 ---
@@ -426,8 +470,9 @@ _(Completar con la plantilla de arriba a medida que el grupo decida.)_
 - [ ] `Red(carpeta)` carga los tres CSV
 - [ ] R1 · R2 · R3
 - [x] R4 · R5 · R6
-- [ ] R7 · R8 · R9 · R10
-- [ ] R11 · Panel de rendimiento
+- [ ] R7 · R8 · R9 · R10 _(R9 y R10 listos; falta documentar R7 y R8)_
+- [x] R11 · Panel de rendimiento (`py front/panel_rendimiento.py`)
+- [x] Pruebas: `py -m unittest discover tests`
 - [ ] R12 · Decisiones documentadas
 - [ ] App arranca con un solo comando
 - [ ] `integrantes.md` completo

@@ -369,9 +369,9 @@ python -m unittest discover tests      # pruebas de R9, R10 y R11
 
 | Req. | Estructura | Algoritmo | Responsable | Estado |
 |---|---|---|---|---|
-| R1 | _pendiente_ | _pendiente_ | | ⬜ |
-| R2 | _pendiente_ | _pendiente_ | | ⬜ |
-| R3 | _pendiente_ | _pendiente_ | | ⬜ |
+| R1 | Tabla hash propia con encadenamiento (nombre → abierta/cerrada) | Hash del nombre y búsqueda en su cubeta | Marco Vargas | ✅ |
+| R2 | Arreglo de nombres ordenado alfabéticamente | Búsqueda binaria del primer nombre ≥ prefijo y avance mientras empiece por él | Marco Vargas | ✅ |
+| R3 | Arreglo de nombres ordenado alfabéticamente (el mismo de R2) | Búsqueda binaria de `desde` y avance hasta pasar `hasta` | Marco Vargas | ✅ |
 | R4 | Tabla hash `ruta\|estacion` → arreglo de horas ordenado | Búsqueda binaria | | ✅ |
 | R5 | Rutas como listas doblemente enlazadas + tabla hash | Dos barridos (atrás desde destino, adelante desde origen) | | ✅ |
 | R6 | Montículo máximo indexado | top-k con montículo auxiliar | | ✅ |
@@ -388,6 +388,49 @@ python -m unittest discover tests      # pruebas de R9, R10 y R11
 ### Decisiones por requisito
 
 _(Completar con la plantilla de arriba a medida que el grupo decida.)_
+### Estructura que comparten R1, R2 y R3
+
+Las estaciones **nunca se crean ni se borran** después de cargar la red: solo se cierran y se reabren (R8). Por eso se guardan en dos estructuras que se arman una sola vez al cargar:
+
+1. Una **tabla hash** (`Red._estaciones`): nombre → `True` (abierta) / `False` (cerrada). Responde "¿existe y está abierta?" sin recorrer nada.
+2. Un **arreglo con todos los nombres ordenados alfabéticamente** (`Red._nombres_ordenados`), ordenado una vez con el `merge_sort` del grupo: **O(n log n)** al cargar, *n* = número de estaciones. Guarda abiertas y cerradas; cerrar o reabrir no lo cambia, solo cambia el valor en la tabla hash.
+
+### R1 · Buscar una estación — `red.estado(nombre)`
+
+- **Estructura:** tabla hash propia (`motor/tabla_hash.py`) con **encadenamiento**: un arreglo de cubetas, y cada cubeta es una lista de pares `[nombre, valor]`. El nombre se convierte en número con `h = h * 31 + código de la letra` y se usa el residuo entre el número de cubetas. Cuando hay más nombres que cubetas, se duplican las cubetas y se recoloca todo (rehash), así cada cubeta queda con muy pocos elementos.
+- **Algoritmo:** calcular la cubeta del nombre y buscarlo solo dentro de ella. Si no está → `"NO EXISTE"`; si está, `"ABIERTA"` o `"CERRADA"` según su valor.
+- **O grande:** **O(1) promedio**, *n* = número de estaciones (no depende de *n*). Peor caso O(n), si todos los nombres cayeran en la misma cubeta. Crear la tabla al cargar: O(n).
+- **Alternativas descartadas:**
+  - **Recorrer la lista de estaciones:** O(n) por consulta.
+  - **Búsqueda binaria en el arreglo ordenado:** O(log n). Funciona, pero R1 es la consulta **más usada** de la app, y la tabla hash la deja en O(1).
+  - **Árbol binario de búsqueda (AVL):** O(log n) y más complejo; su ventaja (el orden) aquí no se necesita, porque el orden ya lo da el arreglo de R2/R3.
+- **Por qué encaja con el enunciado:** "es la consulta que más se usa" → la operación más rápida posible.
+- **Bordes:** nombre inexistente → `"NO EXISTE"`; estación cerrada → `"CERRADA"`.
+
+### R2 · Autocompletar — `red.autocompletar(prefijo, k)`
+
+- **Estructura:** el arreglo de nombres ordenado alfabéticamente.
+- **Algoritmo:** en un arreglo ordenado, todos los nombres que empiezan por el mismo prefijo quedan **seguidos**. Entonces:
+  1. Búsqueda binaria (`primera_posicion` en `motor/ordenamiento.py`) del primer nombre ≥ `prefijo`.
+  2. Desde ahí se avanza mientras el nombre empiece por el prefijo, guardando solo los abiertos (consultando la tabla hash de R1), hasta tener `k`.
+- **O grande:** **O(log n + c)**, *n* = número de estaciones, *c* = nombres revisados después de la búsqueda (como máximo *k* abiertos más los cerrados que se salten en ese tramo). No recorre toda la lista.
+- **Alternativas descartadas:**
+  - **Recorrer todas las estaciones y luego ordenar:** O(n log n) en cada tecla que escribe el usuario.
+  - **Trie (árbol de prefijos):** encontrar el prefijo es O(largo del prefijo), pero ocupa mucha más memoria y es más difícil de programar. Como las estaciones no cambian, el arreglo ordenado con búsqueda binaria da casi lo mismo.
+  - **Árbol AVL:** también O(log n + k), pero solo convendría si se agregaran o borraran estaciones, y eso no pasa.
+- **Por qué encaja con el enunciado:** pide "en orden alfabético" → el arreglo ya está en ese orden, no hay que ordenar en cada consulta.
+- **Bordes:** `k ≤ 0` → `[]`; prefijo sin coincidencias → `[]`; `k` mayor que las que hay → devuelve las que hay; las cerradas no aparecen.
+
+### R3 · Listar un rango — `red.rango(desde, hasta)`
+
+- **Estructura:** el mismo arreglo ordenado de R2.
+- **Algoritmo:** búsqueda binaria del primer nombre ≥ `desde`, y se avanza mientras el nombre sea ≤ `hasta`, guardando solo los abiertos.
+- **O grande:** **O(log n + m)**, *n* = número de estaciones, *m* = nombres dentro del rango (hay que devolverlos todos, así que no se puede menos).
+- **Alternativas descartadas:**
+  - **Recorrer todas las estaciones:** O(n) aunque el rango sea pequeño, y además habría que ordenar el resultado.
+  - **Árbol AVL con recorrido en orden:** también O(log n + m), pero más complejo y sin ventaja, porque las estaciones no cambian.
+- **Por qué encaja con el enunciado:** pide el rango "en orden alfabético", y en el arreglo ordenado el rango es un tramo seguido.
+- **Bordes:** `desde` y `hasta` no tienen que existir como estaciones; si `desde > hasta` → `[]`; incluye a `desde` y `hasta` si existen y están abiertas; las cerradas no aparecen.
 
 ### R4 · Próximo bus — `red.proximo_bus(estacion, ruta, hora)`
 

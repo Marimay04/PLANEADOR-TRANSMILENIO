@@ -19,8 +19,8 @@ class TestR9(unittest.TestCase):
 
     # -- historial vacío --
     def test_sin_historial(self):
-        self.assertIsNone(self.red.deshacer())
-        self.assertIsNone(self.red.rehacer())
+        self.assertFalse(self.red.deshacer())
+        self.assertFalse(self.red.rehacer())
 
     def test_operacion_fallida_no_se_registra(self):
         self.assertFalse(self.red.cerrar("NO EXISTE ESTA"))
@@ -28,16 +28,16 @@ class TestR9(unittest.TestCase):
         self.assertFalse(self.red.quitar_parada("RUTA FALSA", "CALLE 26"))
         self.assertFalse(self.red.agregar_parada(self.ruta, "CALLE 26", "NO ESTA"))
         self.assertFalse(self.red.agregar_parada(self.ruta, "CALLE 26", None))
-        self.assertIsNone(self.red.deshacer())
+        self.assertFalse(self.red.deshacer())
 
     # -- cerrar / reabrir --
     def test_cerrar_deshacer_rehacer(self):
         top = self.red.ranking(1)[0][0]
         self.red.cerrar(top)
-        self.assertEqual(self.red.deshacer(), ("cerrar", top))
+        self.assertTrue(self.red.deshacer())
         self.assertEqual(self.red.estado(top), "ABIERTA")
         self.assertEqual(self.red.ranking(1)[0][0], top)        # vuelve al ranking
-        self.assertEqual(self.red.rehacer(), ("cerrar", top))
+        self.assertTrue(self.red.rehacer())
         self.assertEqual(self.red.estado(top), "CERRADA")
         self.assertNotEqual(self.red.ranking(1)[0][0], top)
         self.assertEqual(self.red.autocompletar(top, 5), [])
@@ -45,14 +45,13 @@ class TestR9(unittest.TestCase):
     def test_reabrir_se_deshace(self):
         self.red.cerrar("CALLE 26")
         self.red.reabrir("CALLE 26")
-        self.assertEqual(self.red.deshacer(), ("reabrir", "CALLE 26"))
+        self.assertTrue(self.red.deshacer())
         self.assertEqual(self.red.estado("CALLE 26"), "CERRADA")
 
     # -- edición de rutas --
     def test_agregar_parada(self):
         self.red.agregar_parada(self.ruta, "CALLE 26", self.orig[0])
-        self.assertEqual(self.red.deshacer(),
-                         ("agregar_parada", self.ruta, "CALLE 26", self.orig[0]))
+        self.assertTrue(self.red.deshacer())
         self.assertEqual(self.red.recorrido(self.ruta), self.orig)
         self.red.rehacer()
         self.assertEqual(self.red.recorrido(self.ruta)[1], "CALLE 26")
@@ -60,7 +59,7 @@ class TestR9(unittest.TestCase):
     def test_quitar_parada_del_medio_inicio_y_final(self):
         for est in (self.orig[1], self.orig[0], self.orig[-1]):
             self.red.quitar_parada(self.ruta, est)
-            self.assertEqual(self.red.deshacer(), ("quitar_parada", self.ruta, est))
+            self.assertTrue(self.red.deshacer())
             self.assertEqual(self.red.recorrido(self.ruta), self.orig)
             self.assertEqual(self.red.recorrido(self.ruta, al_reves=True),
                              self.orig[::-1])
@@ -87,20 +86,31 @@ class TestR9(unittest.TestCase):
         self.red.cerrar("CALLE 26")
         self.red.quitar_parada(self.ruta, self.orig[1])
         self.red.cerrar("CALLE 72")
-        self.assertEqual(self.red.deshacer()[1], "CALLE 72")
-        self.assertEqual(self.red.deshacer()[0], "quitar_parada")
-        self.assertEqual(self.red.deshacer()[1], "CALLE 26")
-        self.assertIsNone(self.red.deshacer())
-        self.assertEqual(self.red.rehacer()[1], "CALLE 26")
-        self.assertEqual(self.red.rehacer()[0], "quitar_parada")
-        self.assertEqual(self.red.rehacer()[1], "CALLE 72")
-        self.assertIsNone(self.red.rehacer())
+        sin = [x for x in self.orig if x != self.orig[1]]
+        self.assertTrue(self.red.deshacer())                    # CALLE 72
+        self.assertEqual(self.red.estado("CALLE 72"), "ABIERTA")
+        self.assertEqual(self.red.recorrido(self.ruta), sin)
+        self.assertTrue(self.red.deshacer())                    # quitar_parada
+        self.assertEqual(self.red.recorrido(self.ruta), self.orig)
+        self.assertEqual(self.red.estado("CALLE 26"), "CERRADA")
+        self.assertTrue(self.red.deshacer())                    # CALLE 26
+        self.assertEqual(self.red.estado("CALLE 26"), "ABIERTA")
+        self.assertFalse(self.red.deshacer())
+        self.assertTrue(self.red.rehacer())                     # CALLE 26
+        self.assertEqual(self.red.estado("CALLE 26"), "CERRADA")
+        self.assertEqual(self.red.recorrido(self.ruta), self.orig)
+        self.assertTrue(self.red.rehacer())                     # quitar_parada
+        self.assertEqual(self.red.recorrido(self.ruta), sin)
+        self.assertEqual(self.red.estado("CALLE 72"), "ABIERTA")
+        self.assertTrue(self.red.rehacer())                     # CALLE 72
+        self.assertEqual(self.red.estado("CALLE 72"), "CERRADA")
+        self.assertFalse(self.red.rehacer())
 
     def test_cambio_nuevo_borra_rehacer(self):
         self.red.cerrar("CALLE 26")
         self.red.deshacer()
         self.red.cerrar("CALLE 72")
-        self.assertIsNone(self.red.rehacer())
+        self.assertFalse(self.red.rehacer())
         self.assertEqual(self.red.estado("CALLE 26"), "ABIERTA")
 
     def test_rehacer_no_borra_el_resto_de_rehacer(self):
@@ -109,7 +119,8 @@ class TestR9(unittest.TestCase):
         self.red.deshacer()
         self.red.deshacer()
         self.red.rehacer()
-        self.assertEqual(self.red.rehacer(), ("cerrar", "CALLE 72"))
+        self.assertTrue(self.red.rehacer())
+        self.assertEqual(self.red.estado("CALLE 72"), "CERRADA")
 
 
 class TestBordesR1aR8(unittest.TestCase):

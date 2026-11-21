@@ -471,20 +471,20 @@ Las estaciones **nunca se crean ni se borran** después de cargar la red: solo s
 - **Algoritmo:** cada `cerrar`, `reabrir`, `agregar_parada` o `quitar_parada` **que sí cambió algo** (devolvió `True`) se apila en `_hechos` y **vacía** `_deshechos` (un cambio nuevo borra lo que había para rehacer). `deshacer` saca el tope de `_hechos`, aplica la **operación inversa** y lo pasa a `_deshechos`; `rehacer` hace lo contrario. Las pilas garantizan el orden correcto (último en entrar, primero en salir).
   - Inversas: `cerrar` ↔ `reabrir`; `agregar_parada` ↔ `quitar_parada`. Para deshacer un `quitar_parada` se guarda **cuál era la parada anterior** (o `None` si era la primera de la ruta) y se vuelve a insertar ahí.
   - Las inversas usan métodos internos (`_cambiar_estado`, `_agregar`, `_quitar`) que no tocan el historial, así deshacer no se registra como un cambio nuevo.
-- **Retorno:** la descripción del cambio deshecho/rehecho, por ejemplo `("cerrar", "CALLE 26")`, `("reabrir", nombre)`, `("agregar_parada", ruta, nueva, despues_de)` o `("quitar_parada", ruta, estacion)`. `None` si no hay nada que deshacer/rehacer.
+- **Retorno (contrato):** `True` si deshizo/rehizo algo, `False` si no había nada.
 - **O grande:** O(1) para mover el cambio entre pilas + el costo de la operación inversa: **O(log n)** (*n* = estaciones abiertas) por reubicar la estación en el montículo del ranking. `quitar_parada` suma O(r), *r* = rutas que pasan por esa estación.
 - **Descartado:**
   - Guardar una **copia de toda la red** en cada cambio: deshacer sería trivial, pero cada cambio costaría O(n + tamaño de las rutas) en tiempo y memoria, y los operadores editan "todo el tiempo".
   - Una **sola lista con un índice** de posición actual: funciona igual, pero borrar lo de rehacer obliga a recortar la lista; con dos pilas es solo reiniciar `_deshechos`.
-- **Bordes:** historial vacío → `None`; operaciones fallidas (estación inexistente, ya cerrada, parada que no está, ruta inexistente) no se registran; deshacer/rehacer varias veces seguidas respeta el orden; quitar la primera o la última parada de una ruta, o vaciarla, también se deshace.
+- **Bordes:** historial vacío → `False`; operaciones fallidas (estación inexistente, ya cerrada, parada que no está, ruta inexistente) no se registran; deshacer/rehacer varias veces seguidas respeta el orden; quitar la primera o la última parada de una ruta, o vaciarla, también se deshace.
 
 ### R10 · Fila de abordaje — `simular_fila(llegadas, frecuencia, capacidad)`
 
-> ⚠️ **Formato supuesto** (la presentación no lo define; *grupo: confirmar con el enunciado*): `llegadas` son minutos (números o textos `"HH:MM"`), no necesariamente ordenados; los buses salen en `frecuencia`, `2·frecuencia`, …; quien llega justo en el minuto de salida alcanza a subir. **Devuelve la lista de esperas** (minutos) de cada pasajero, en el mismo orden de `llegadas`.
+**Formato (según el enunciado):** `llegadas` son los segundos de llegada (no necesariamente ordenados), `frecuencia` los segundos entre buses y `capacidad` el cupo por bus. Los buses salen en `frecuencia`, `2·frecuencia`, …; quien llega justo en el segundo de salida alcanza a subir. **Devuelve, en el mismo orden de `llegadas`, el segundo en que salió el bus de cada persona.** Ejemplo del enunciado: `simular_fila([30, 5, 5, 70], 60, 2)` → `[120, 60, 60, 120]`.
 
 - **Estructura:** **cola FIFO** propia (`motor/fila.py`, clase `Cola`) sobre una lista con un índice al frente: `encolar` = `append`, `desencolar` = avanzar el índice. Ambas O(1).
 - **Algoritmo:**
-  1. Se arman pares `(minuto, posición)` y se ordenan con el `merge_sort` del grupo. La posición desempata (llegan al mismo minuto → va primero el que aparece antes) y permite devolver las esperas en el orden original.
+  1. Se arman pares `(segundo, posición)` y se ordenan con el `merge_sort` del grupo. La posición desempata (llegan al mismo segundo → va primero el que aparece antes) y permite devolver las salidas en el orden original.
   2. Bus por bus: entran a la cola todos los que llegaron hasta la salida del bus y suben hasta `capacidad`, en orden de llegada. Si la cola queda vacía, se **salta directo** al primer bus que sale después de la siguiente llegada (no se recorren buses vacíos).
 - **O grande** (*P* = pasajeros): ordenar **O(P log P)**; simular **O(P)**, porque cada pasajero entra y sale de la cola una sola vez y solo se procesan buses que llevan gente (≤ *P*). Total **O(P log P)**. Si la lista ya viniera ordenada, la simulación sola es lineal.
 - **Descartado:**

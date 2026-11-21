@@ -22,7 +22,7 @@ def simular_ingenuo(llegadas, frecuencia, capacidad):
         salida = bus * frecuencia
         suben = 0
         while pos < len(orden) and suben < capacidad and llegadas[orden[pos]] <= salida:
-            esperas[orden[pos]] = salida - llegadas[orden[pos]]
+            esperas[orden[pos]] = salida
             pos += 1
             suben += 1
         bus += 1
@@ -30,28 +30,31 @@ def simular_ingenuo(llegadas, frecuencia, capacidad):
 
 
 class TestR10(unittest.TestCase):
+    def test_ejemplo_del_enunciado(self):
+        self.assertEqual(simular_fila([30, 5, 5, 70], 60, 2), [120, 60, 60, 120])
+
     def test_ejemplo_basico(self):
         # buses en 5, 10, 15; cupo 2
-        self.assertEqual(simular_fila([0, 1, 2, 3, 4], 5, 2), [5, 4, 8, 7, 11])
+        self.assertEqual(simular_fila([0, 1, 2, 3, 4], 5, 2), [5, 5, 10, 10, 15])
 
     def test_llegadas_desordenadas(self):
-        self.assertEqual(simular_fila([4, 0, 3, 1, 2], 5, 2), [11, 5, 7, 4, 8])
+        self.assertEqual(simular_fila([4, 0, 3, 1, 2], 5, 2), [15, 5, 10, 5, 10])
 
     def test_llega_justo_a_la_salida(self):
-        self.assertEqual(simular_fila([5], 5, 1), [0])
+        self.assertEqual(simular_fila([5], 5, 1), [5])
 
     def test_empate_respeta_orden_de_la_lista(self):
-        self.assertEqual(simular_fila([2, 2, 2], 5, 2), [3, 3, 8])
+        self.assertEqual(simular_fila([2, 2, 2], 5, 2), [5, 5, 10])
 
     def test_buses_vacios_entre_llegadas(self):
-        self.assertEqual(simular_fila([0, 100], 5, 10), [5, 0])
+        self.assertEqual(simular_fila([0, 100], 5, 10), [5, 100])
 
     def test_cupo_sobra(self):
-        self.assertEqual(simular_fila([1, 2, 3], 10, 100), [9, 8, 7])
+        self.assertEqual(simular_fila([1, 2, 3], 10, 100), [10, 10, 10])
 
     def test_horas_en_texto(self):
         # 07:00 = 420 min; buses cada 15 -> sale a las 420
-        self.assertEqual(simular_fila(["07:00", "07:01"], 15, 1), [0, 14])
+        self.assertEqual(simular_fila(["07:00", "07:01"], 15, 1), [420, 435])
 
     # -- bordes --
     def test_lista_vacia(self):
@@ -80,12 +83,12 @@ class TestR10(unittest.TestCase):
         azar = random.Random(1)
         llegadas = [azar.randint(0, 180) for _ in range(200000)]
         t = time.perf_counter()
-        esperas = simular_fila(llegadas, 3, 160)
+        salidas = simular_fila(llegadas, 3, 160)
         dt = time.perf_counter() - t
-        self.assertEqual(len(esperas), 200000)
+        self.assertEqual(len(salidas), 200000)
         neg = 0
-        for e in esperas:
-            if e < 0:
+        for s, l in zip(salidas, llegadas):
+            if s < l:          # nadie puede salir antes de llegar
                 neg += 1
         self.assertEqual(neg, 0)
         self.assertLess(dt, 20)   # margen amplio; en la práctica unos pocos segundos

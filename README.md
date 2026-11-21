@@ -375,7 +375,7 @@ python -m unittest discover tests      # pruebas de R9, R10 y R11
 | R4 | Tabla hash `ruta\|estacion` → arreglo de horas ordenado | Búsqueda binaria | | ✅ |
 | R5 | Rutas como listas doblemente enlazadas + tabla hash | Dos barridos (atrás desde destino, adelante desde origen) | | ✅ |
 | R6 | Montículo máximo indexado | top-k con montículo auxiliar | | ✅ |
-| R7 | _pendiente_ | _pendiente_ | | ⬜ |
+| R7 | Lista doblemente enlazada por ruta + tabla hash estación → nodo | Enlazar/desenlazar el nodo encontrado con la tabla hash | Mariana Mayorga | ✅ |
 | R8 | _pendiente_ | _pendiente_ | | ⬜ |
 | R9 | Dos pilas (listas como arreglo) | Apilar el cambio; deshacer = aplicar la operación inversa | Sebastian Pereira | ✅ |
 | R10 | Cola FIFO sobre arreglo con índice al frente | Merge sort de llegadas + simulación bus a bus saltando buses vacíos | Sebastian Pereira | ✅ |
@@ -464,6 +464,26 @@ Las estaciones **nunca se crean ni se borran** después de cargar la red: solo s
 - `cerrar` saca la estación del montículo y `reabrir` la vuelve a meter (O(log n)).
 - `quitar_parada` resta a la estación los buses de esa ruta; `agregar_parada` se los devuelve si esa ruta tenía horarios ahí (una parada nueva sin horarios suma 0).
 - `deshacer`/`rehacer` (R9) usan los mismos métodos internos que `cerrar`, `reabrir`, `agregar_parada` y `quitar_parada`, así que el ranking sigue al día.
+
+### R7 · Editar rutas — `red.agregar_parada(ruta, nueva, despues_de)`, `red.quitar_parada(ruta, estacion)`, `red.recorrido(ruta, al_reves=False)`
+
+- **Estructura:** cada ruta es una **lista doblemente enlazada** (`Ruta` en `motor/estructuras_viaje.py`) con `cabeza` y `cola`; cada nodo (`NodoRuta`) apunta a la parada anterior (`ant`) y a la siguiente (`sig`). Cada ruta tiene además una **tabla hash** `nodo_de` (estación → nodo) para encontrar cualquier parada sin recorrer la ruta. Las rutas se buscan por nombre en otra tabla hash (`Red._rutas`).
+- **Algoritmo:**
+  - `agregar_parada`: se busca en `nodo_de` el nodo de `despues_de` y se enlaza el nodo nuevo entre él y su siguiente (cuatro enlaces). Si era la última, el nuevo pasa a ser la `cola`.
+  - `quitar_parada`: se busca el nodo en `nodo_de` y se une su anterior con su siguiente. Si era la `cabeza` o la `cola`, se actualizan.
+  - `recorrido`: desde la `cabeza` siguiendo `sig`; con `al_reves=True`, desde la `cola` siguiendo `ant`.
+- **O grande:**
+  - `agregar_parada`: **O(1)** promedio (tabla hash + enlaces) + O(log n) para reubicar la estación en el montículo del ranking (R6), *n* = estaciones abiertas.
+  - `quitar_parada`: **O(1)** promedio + O(r) para sacar el nodo de la lista de nodos de la estación (*r* = rutas que pasan por esa estación, lo usa R5) + O(log n) del ranking.
+  - `recorrido`: **O(m)**, *m* = paradas de la ruta (hay que devolverlas todas).
+  - Carga: O(F log F), *F* = filas de `rutas.csv` (se ordena cada ruta por `orden` con el `merge_sort` del grupo).
+- **Alternativas descartadas:**
+  - **Arreglo (`list`) por ruta:** insertar o quitar en la mitad obliga a correr todos los elementos de la derecha, y encontrar la estación es una búsqueda lineal: O(m) por operación.
+  - **Lista simplemente enlazada:** no permite recorrer al revés directamente y, para quitar un nodo, hay que recorrer desde la cabeza buscando su anterior: O(m).
+  - **Lista doble sin tabla hash:** enlazar es O(1), pero encontrar `despues_de` sería recorrer la ruta: O(m).
+- **Por qué encaja con el enunciado:** los operadores editan "todo el tiempo" → cada edición debe ser barata (O(1)); "ven el recorrido en los dos sentidos" → el enlace `ant` permite la vuelta sin copiar ni invertir la lista.
+- **Bordes:** ruta inexistente, `despues_de` que no está en la ruta, estación nueva que ya está en la ruta (no se repite) o que no existe en `estaciones.csv`, y `despues_de = None` → `False` sin cambiar nada (insertar al inicio solo lo usa `deshacer`). Quitar una estación que no está → `False`. Quitar la primera, la última o vaciar la ruta funciona. `recorrido` de una ruta inexistente → `[]`. Las estaciones cerradas siguen apareciendo en `recorrido` (el bus pasa por ahí aunque nadie suba ni baje).
+- **Relación con otros requisitos:** quitar una parada hace que `proximo_bus` (R4) devuelva `None` para esa ruta y estación, y le resta sus buses en el ranking (R6); agregarla de nuevo se los devuelve. Las operaciones que sí cambian algo se registran para `deshacer`/`rehacer` (R9). Pruebas: `tests/test_r7.py`.
 
 ### R9 · Deshacer y rehacer — `red.deshacer()`, `red.rehacer()`
 

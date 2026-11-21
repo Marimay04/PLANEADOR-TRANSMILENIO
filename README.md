@@ -396,14 +396,14 @@ python -m unittest discover tests      # pruebas de R9, R10 y R11
 | R5 | Rutas como listas doblemente enlazadas + tabla hash | Dos barridos (atrás desde destino, adelante desde origen) | | ✅ |
 | R6 | Montículo máximo indexado | top-k con montículo auxiliar | | ✅ |
 | R7 | Lista doblemente enlazada por ruta + tabla hash estación → nodo | Enlazar/desenlazar el nodo encontrado con la tabla hash | Mariana Mayorga | ✅ |
-| R8 | _pendiente_ | _pendiente_ | | ⬜ |
+| R8 | La tabla hash de R1 (nombre → abierta/cerrada) + el montículo de R6 | Cambiar el valor en la tabla hash; cada consulta revisa si la estación está abierta | Marco Vargas | ✅ |
 | R9 | Dos pilas (listas como arreglo) | Apilar el cambio; deshacer = aplicar la operación inversa | Sebastian Pereira | ✅ |
 | R10 | Cola FIFO sobre arreglo con índice al frente | Merge sort de llegadas + simulación bus a bus saltando buses vacíos | Sebastian Pereira | ✅ |
 
 ### Decisiones transversales
 
 - **Horas mayores a 24:00 del GTFS (ej. `25:10`):** el motor convierte cada hora a minutos (`25:10` → 1510), así que una hora como `25:10` queda después de `23:59`, en el mismo día de servicio, y se devuelve tal como viene en el CSV. Los CSV actuales de `datos/` no traen horas ≥ 24. _(Grupo: confirmar qué hace el script de conversión.)_
-- **Interacción entre R8/R9 y el resto** (cerrar estación afecta R1–R6; todo se puede deshacer): _pendiente._
+- **Interacción entre R8/R9 y el resto** (cerrar estación afecta R1–R6; todo se puede deshacer): cerrar una estación **no la borra** de ninguna estructura; solo cambia su valor en la tabla hash de R1, y cada requisito pregunta "¿está abierta?" en O(1) antes de usarla. La única estructura que sí se actualiza es el montículo del ranking (R6). Detalle en [R8](#r8--cerrar-y-reabrir-estaciones--redcerrarnombre-redreabrirnombre).
 
 ### Decisiones por requisito
 
@@ -504,6 +504,37 @@ Las estaciones **nunca se crean ni se borran** después de cargar la red: solo s
 - **Por qué encaja con el enunciado:** los operadores editan "todo el tiempo" → cada edición debe ser barata (O(1)); "ven el recorrido en los dos sentidos" → el enlace `ant` permite la vuelta sin copiar ni invertir la lista.
 - **Bordes:** ruta inexistente, `despues_de` que no está en la ruta, estación nueva que ya está en la ruta (no se repite) o que no existe en `estaciones.csv`, y `despues_de = None` → `False` sin cambiar nada (insertar al inicio solo lo usa `deshacer`). Quitar una estación que no está → `False`. Quitar la primera, la última o vaciar la ruta funciona. `recorrido` de una ruta inexistente → `[]`. Las estaciones cerradas siguen apareciendo en `recorrido` (el bus pasa por ahí aunque nadie suba ni baje).
 - **Relación con otros requisitos:** quitar una parada hace que `proximo_bus` (R4) devuelva `None` para esa ruta y estación, y le resta sus buses en el ranking (R6); agregarla de nuevo se los devuelve. Las operaciones que sí cambian algo se registran para `deshacer`/`rehacer` (R9). Pruebas: `tests/test_r7.py`.
+
+### R8 · Cerrar y reabrir estaciones — `red.cerrar(nombre)`, `red.reabrir(nombre)`
+
+- **Estructura:** la **misma tabla hash de R1** (`Red._estaciones`): nombre → `True` (abierta) / `False` (cerrada). Cerrar o reabrir solo cambia ese valor; la estación **no se borra** del arreglo ordenado (R2/R3), ni de las rutas (R5/R7), ni de los horarios (R4). La única estructura que se modifica además es el **montículo del ranking** (R6).
+- **Algoritmo** (`_cambiar_estado`, compartido por `cerrar` y `reabrir`):
+  1. Buscar el valor actual en la tabla hash.
+  2. Si no existe → `False` (**no se crea**: un `put` directo insertaría una estación nueva).
+  3. Si ya estaba en ese estado → `False` (no hubo cambio, así que tampoco se registra en el historial de R9).
+  4. Si no, guardar el nuevo valor, sacar la estación del montículo (al cerrar) o volver a insertarla (al reabrir), y registrar el cambio para `deshacer` (R9).
+- **Cómo lo respeta cada requisito** (todos preguntan `_esta_abierta(nombre)`, que es un `get` O(1) en la tabla hash):
+
+  | Req. | Qué pasa con una estación cerrada |
+  |---|---|
+  | R1 | `estado` devuelve `"CERRADA"` |
+  | R2 / R3 | se salta al recorrer el arreglo ordenado: no aparece |
+  | R4 | `proximo_bus` devuelve `None`: nadie sube ahí |
+  | R5 | no puede ser origen, destino ni estación de transbordo; el bus sí pasa por ella y cuenta como parada recorrida |
+  | R6 | sale del montículo: no aparece en el ranking |
+  | R7 | sigue en `recorrido`, porque la ruta físicamente pasa por ahí |
+
+- **O grande** (*n* = número de estaciones):
+  - `cerrar` / `reabrir`: **O(log n)**. La parte de la tabla hash es O(1) promedio; el log n viene de sacar o insertar la estación en el montículo del ranking (*n* = estaciones abiertas). Registrar en el historial de R9 es O(1).
+  - Saber si una estación está abierta (lo usan R1–R6): **O(1)** promedio.
+- **Alternativas descartadas:**
+  - **Borrar la estación de todas las estructuras al cerrar:** sacarla del arreglo ordenado obliga a correr los elementos, O(n), y reabrir obligaría a reinsertarla en su lugar y reconstruir sus rutas y horarios. Además deshacer (R9) sería mucho más complicado.
+  - **Una lista aparte con las estaciones cerradas:** saber si una estación está cerrada sería buscar en esa lista, O(c) con *c* = cerradas, y `x in lista` está prohibido en el motor.
+  - **Recalcular el ranking en cada consulta, filtrando las cerradas:** O(n log n) por consulta, y el ranking "se consulta muy seguido".
+- **Por qué encaja con el enunciado:** "R8 y R9 tocan todo lo anterior": con una sola pregunta O(1) (`¿está abierta?`) todos los requisitos respetan el cierre sin duplicar datos, y como no se borra nada, reabrir y deshacer son inmediatos.
+- **Debilidad conocida:** en R2 y R3 las cerradas se saltan una por una. Si hay muchas cerradas seguidas dentro del tramo recorrido, la consulta revisa más nombres (por eso su costo es O(log n + c), no O(log n + k)).
+- **Bordes:** estación inexistente → `False` y no se crea; cerrar una cerrada o reabrir una abierta → `False` y no se registra en R9; al reabrir vuelve a aparecer en todas las consultas y en el ranking con los mismos buses; `deshacer` de un cierre la reabre y viceversa.
+- **Responsables:** Marco Vargas (`cerrar`, `reabrir`, `_cambiar_estado`); la conexión con el montículo del ranking la hizo Juan Diego Castillo (R6) y el registro en el historial Sebastian Pereira (R9).
 
 ### R9 · Deshacer y rehacer — `red.deshacer()`, `red.rehacer()`
 

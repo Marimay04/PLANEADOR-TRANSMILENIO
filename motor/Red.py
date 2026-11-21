@@ -449,13 +449,12 @@ class Red:
 
     def deshacer(self):
         """Deshace el último cambio (cerrar, reabrir, agregar_parada o
-        quitar_parada). Devuelve su descripción, por ejemplo
-        ("cerrar", "CALLE 26") o ("quitar_parada", ruta, estacion), o None si
-        no hay nada que deshacer.
+        quitar_parada). True si deshizo algo, False si no había nada
+        (así lo pide el contrato).
         O(1) de la pila + lo que cueste la operación inversa (O(log n) por el
         ranking; n = estaciones abiertas)."""
         if len(self._hechos) == 0:
-            return None
+            return False
         cambio = self._hechos.pop()
         d = cambio[0]
         tipo = d[0]
@@ -468,14 +467,14 @@ class Red:
         else:                               # quitar_parada
             self._agregar(d[1], d[2], cambio[1])
         self._deshechos.append(cambio)
-        return d
+        return True
 
     def rehacer(self):
-        """Vuelve a aplicar el último cambio deshecho y devuelve su
-        descripción, o None si no hay nada que rehacer (o si un cambio nuevo
-        borró lo que había). Misma complejidad que deshacer."""
+        """Vuelve a aplicar el último cambio deshecho. True si rehizo algo,
+        False si no había nada (o si un cambio nuevo borró lo que había).
+        Misma complejidad que deshacer."""
         if len(self._deshechos) == 0:
-            return None
+            return False
         cambio = self._deshechos.pop()
         d = cambio[0]
         tipo = d[0]
@@ -488,4 +487,4 @@ class Red:
         else:                               # quitar_parada
             cambio[1] = self._quitar(d[1], d[2])
         self._hechos.append(cambio)         # sin borrar _deshechos
-        return d
+        return True

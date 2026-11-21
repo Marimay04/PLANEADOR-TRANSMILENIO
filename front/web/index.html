@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Planeador TransMilenio · Red 3D</title>
+  <link rel="stylesheet" href="css/app.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%228%22 fill=%22%23d7192d%22/%3E%3Crect x=%227%22 y=%2212%22 width=%2218%22 height=%223%22 rx=%221.5%22 fill=%22white%22/%3E%3Crect x=%227%22 y=%2218%22 width=%2211%22 height=%223%22 rx=%221.5%22 fill=%22%23f5b700%22/%3E%3C/svg%3E">
+  <script type="importmap">
+    { "imports": { "three": "./vendor/three.module.min.js" } }
+  </script>
+</head>
+<body>
+  <!-- Escena 3D de fondo -->
+  <div id="escena" aria-label="Maqueta 3D de la red"></div>
+
+  <!-- Pantalla de carga -->
+  <div id="carga" class="carga">
+    <div class="carga-marca">
+      <span class="marca-icono" aria-hidden="true"><i></i><i></i></span>
+      <div>
+        <strong>Planeador</strong>
+        <span>TransMilenio</span>
+      </div>
+    </div>
+    <div class="carga-barra"><i></i></div>
+    <p id="carga-texto">Cargando la red desde el motor…</p>
+  </div>
+
+  <!-- Barra superior -->
+  <header class="barra">
+    <div class="marca">
+      <span class="marca-icono" aria-hidden="true"><i></i><i></i></span>
+      <div class="marca-texto">
+        <strong>Planeador</strong>
+        <span id="resumen-red">TransMilenio</span>
+      </div>
+    </div>
+    <div class="barra-acciones">
+      <button class="boton-icono" id="btn-deshacer" title="Deshacer el último cambio (Ctrl+Z)" aria-label="Deshacer">
+        <svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>
+      </button>
+      <button class="boton-icono" id="btn-rehacer" title="Rehacer (Ctrl+Y)" aria-label="Rehacer">
+        <svg viewBox="0 0 24 24"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></svg>
+      </button>
+      <span class="separador"></span>
+      <button class="boton-suave" id="btn-panel" title="Abre el panel de rendimiento (R11) en otra ventana">
+        <svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m7 15 4-4 3 3 6-7"/></svg>
+        Rendimiento
+      </button>
+    </div>
+  </header>
+
+  <!-- Panel izquierdo con pestañas -->
+  <aside class="panel" id="panel">
+    <nav class="pestanas" role="tablist">
+      <button role="tab" data-vista="viaje" class="activa">Viaje</button>
+      <button role="tab" data-vista="estaciones">Estaciones</button>
+      <button role="tab" data-vista="operar">Operar</button>
+      <button role="tab" data-vista="horapico">Hora pico</button>
+      <span class="pestanas-indicador" aria-hidden="true"></span>
+    </nav>
+
+    <!-- ===== VIAJE (R4, R5) ===== -->
+    <section class="vista activa" id="vista-viaje">
+      <h2>¿A dónde vas?</h2>
+      <p class="sub">El viaje directo o con un transbordo que pasa por menos paradas.</p>
+
+      <div class="od">
+        <div class="od-linea" aria-hidden="true"><i class="o"></i><span></span><i class="d"></i></div>
+        <div class="od-campos">
+          <div class="campo auto" data-auto="abiertas">
+            <label for="origen">Origen</label>
+            <input id="origen" autocomplete="off" placeholder="Escribe una estación">
+            <ul class="sugerencias"></ul>
+          </div>
+          <div class="campo auto" data-auto="abiertas">
+            <label for="destino">Destino</label>
+            <input id="destino" autocomplete="off" placeholder="Escribe una estación">
+            <ul class="sugerencias"></ul>
+          </div>
+        </div>
+        <button class="boton-icono intercambiar" id="btn-intercambiar" title="Intercambiar origen y destino" aria-label="Intercambiar">
+          <svg viewBox="0 0 24 24"><path d="M7 4v16"/><path d="m3 8 4-4 4 4"/><path d="M17 20V4"/><path d="m21 16-4 4-4-4"/></svg>
+        </button>
+      </div>
+
+      <div class="fila-campos">
+        <div class="campo pequeno">
+          <label for="hora-viaje">Salgo a las</label>
+          <input id="hora-viaje" type="time" value="07:30">
+        </div>
+        <button class="boton-primario" id="btn-planear">Planear viaje</button>
+      </div>
+
+      <div id="resultado-viaje" class="resultado"></div>
+    </section>
+
+    <!-- ===== ESTACIONES (R1, R2, R3, R6) ===== -->
+    <section class="vista" id="vista-estaciones">
+      <h2>Estaciones</h2>
+      <p class="sub">Busca, lista un rango alfabético o mira dónde pasan más buses.</p>
+
+      <div class="campo auto buscador" data-auto="todas">
+        <svg class="lupa" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="buscar-estacion" autocomplete="off" placeholder="Nombre exacto o el comienzo…">
+        <ul class="sugerencias"></ul>
+      </div>
+      <div id="estado-busqueda" class="estado-busqueda"></div>
+
+      <div class="bloque">
+        <div class="bloque-titulo">
+          <h3>Ranking</h3>
+          <span class="etiqueta-req">R6</span>
+          <div class="k-control">
+            <button class="mini" data-k="-1" aria-label="Menos">−</button>
+            <span id="k-ranking">8</span>
+            <button class="mini" data-k="1" aria-label="Más">+</button>
+          </div>
+        </div>
+        <ol id="lista-ranking" class="ranking"></ol>
+      </div>
+
+      <div class="bloque">
+        <div class="bloque-titulo"><h3>Rango alfabético</h3><span class="etiqueta-req">R3</span></div>
+        <div class="fila-campos">
+          <div class="campo"><label for="rango-desde">Desde</label><input id="rango-desde" value="CALLE 26"></div>
+          <div class="campo"><label for="rango-hasta">Hasta</label><input id="rango-hasta" value="CALLE 80"></div>
+          <button class="boton-secundario" id="btn-rango">Listar</button>
+        </div>
+        <div id="resultado-rango" class="chips"></div>
+      </div>
+    </section>
+
+    <!-- ===== OPERAR (R7, R8, R9) ===== -->
+    <section class="vista" id="vista-operar">
+      <h2>Operar la red</h2>
+      <p class="sub">Edita recorridos y cierra estaciones. Todo se puede deshacer.</p>
+
+      <div class="bloque">
+        <div class="bloque-titulo"><h3>Recorrido de una ruta</h3><span class="etiqueta-req">R7</span></div>
+        <div class="fila-campos">
+          <div class="campo auto" data-auto="rutas">
+            <label for="ruta-op">Ruta</label>
+            <input id="ruta-op" autocomplete="off" placeholder="Ej. B13-1">
+            <ul class="sugerencias"></ul>
+          </div>
+          <div class="segmentado" id="sentido">
+            <button class="activo" data-reves="0">Ida</button>
+            <button data-reves="1">Al revés</button>
+          </div>
+        </div>
+        <div id="recorrido" class="recorrido"></div>
+      </div>
+
+      <div class="bloque">
+        <div class="bloque-titulo"><h3>Cerrar o reabrir</h3><span class="etiqueta-req">R8</span></div>
+        <div class="fila-campos">
+          <div class="campo auto" data-auto="todas">
+            <label for="estacion-op">Estación</label>
+            <input id="estacion-op" autocomplete="off" placeholder="Escribe una estación">
+            <ul class="sugerencias"></ul>
+          </div>
+          <button class="boton-secundario" id="btn-alternar">Cerrar</button>
+        </div>
+        <div id="cerradas" class="chips"></div>
+      </div>
+
+      <div class="bloque">
+        <div class="bloque-titulo"><h3>Historial</h3><span class="etiqueta-req">R9</span></div>
+        <ol id="historial" class="historial"></ol>
+        <div class="fila-botones">
+          <button class="boton-secundario" id="btn-deshacer-2">↶ Deshacer</button>
+          <button class="boton-secundario" id="btn-rehacer-2">Rehacer ↷</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== HORA PICO (R10) ===== -->
+    <section class="vista" id="vista-horapico">
+      <h2>Hora pico</h2>
+      <p class="sub">Los buses salen cada cierto tiempo con cupo limitado y la gente sube en orden de llegada.</p>
+
+      <div class="parametros">
+        <div class="campo"><label for="hp-pasajeros">Pasajeros</label><input id="hp-pasajeros" type="number" min="1" value="1200"></div>
+        <div class="campo"><label for="hp-duracion">Llegan durante (s)</label><input id="hp-duracion" type="number" min="1" value="900"></div>
+        <div class="campo"><label for="hp-frecuencia">Bus cada (s)</label><input id="hp-frecuencia" type="number" min="1" value="90"></div>
+        <div class="campo"><label for="hp-capacidad">Cupo por bus</label><input id="hp-capacidad" type="number" min="1" value="150"></div>
+      </div>
+      <div class="fila-botones">
+        <button class="boton-primario" id="btn-simular">Simular</button>
+        <button class="boton-secundario" id="btn-ejemplo">Ejemplo del enunciado</button>
+      </div>
+
+      <div id="hp-resultado" class="hp-resultado"></div>
+    </section>
+  </aside>
+
+  <!-- Tarjeta de estación (derecha) -->
+  <aside class="tarjeta" id="tarjeta" hidden>
+    <button class="cerrar-tarjeta" id="cerrar-tarjeta" aria-label="Cerrar">×</button>
+    <div id="tarjeta-contenido"></div>
+  </aside>
+
+  <!-- Controles de la escena -->
+  <div class="controles-escena">
+    <div class="leyenda">
+      <span class="leyenda-torre" aria-hidden="true"></span>
+      <div><strong>Altura</strong> = buses por día<br><span class="tenue">Gris = estación cerrada</span></div>
+    </div>
+    <div class="grupo-botones">
+      <button class="boton-icono" id="btn-etiquetas" title="Mostrar u ocultar nombres" aria-label="Nombres">
+        <svg viewBox="0 0 24 24"><path d="M4 7V5h16v2"/><path d="M12 5v14"/><path d="M9 19h6"/></svg>
+      </button>
+      <button class="boton-icono" id="btn-girar" title="Girar la maqueta" aria-label="Girar">
+        <svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/></svg>
+      </button>
+      <button class="boton-icono" id="btn-centrar" title="Volver a la vista general" aria-label="Centrar">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div id="avisos" class="avisos" aria-live="polite"></div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

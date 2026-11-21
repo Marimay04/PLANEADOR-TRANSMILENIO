@@ -349,20 +349,30 @@ Estructura sugerida (ajustable):
 
 ## Cómo arrancar la app
 
-> 📌 **TODO (grupo):** escribir aquí el **comando único** que arranca la app, por ejemplo:
->
-> ```bash
-> # ejemplo, reemplazar por el comando real
-> python front/app.py
-> ```
->
-> Incluir también cómo generar los CSV desde el GTFS y cómo instalar dependencias del front/conversión (nunca del motor).
+**Requisitos:** Python 3.10 o superior. **No hay que instalar nada**: el motor, la app web y el panel solo usan la librería estándar de Python.
 
-Ya disponible (desde la raíz del repositorio, sin instalar nada):
+Desde la **raíz del repositorio**:
 
 ```bash
-python front/panel_rendimiento.py      # R11: panel de rendimiento (en Windows también: py ...)
-python -m unittest discover tests      # pruebas de R9, R10 y R11
+python front/app.py
+```
+
+Arranca la app web y abre el navegador en **http://localhost:8000**. En Windows también funciona `py front/app.py`. Para detenerla: `Ctrl + C` en la terminal.
+
+Opciones:
+
+```bash
+python front/app.py otra/carpeta/con/csv    # usar otra red (misma estructura de los tres CSV)
+```
+
+- Por defecto lee la red de `datos/` (`estaciones.csv`, `rutas.csv`, `horarios.csv`).
+- Para usar otro puerto, definir la variable de entorno `PUERTO` antes de arrancar (por ejemplo `PUERTO=8080` en Git Bash).
+
+Otros comandos (también desde la raíz):
+
+```bash
+python front/panel_rendimiento.py      # R11: panel de rendimiento (ventana de escritorio)
+python -m unittest discover tests      # pruebas automáticas de R7, R9, R10 y R11
 ```
 
 ---

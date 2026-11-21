@@ -190,7 +190,27 @@ El script de calificación hace `from motor import Red, simular_fila` y llama **
 - `simular_fila` es una **función suelta**, fuera de la clase `Red`.
 - Lo que devuelve cada llamada y sus reglas exactas está en **el enunciado completo** del profesor (PDF/documento aparte). La presentación solo muestra las firmas.
 
-> 📌 **TODO (grupo):** pegar aquí o enlazar el enunciado completo con los formatos exactos de retorno de cada método (qué tipo devuelve `estado`, formato de la lista de `viaje`, qué pasa con entradas inválidas, etc.). Hasta que esté aquí, la IA no debe inventar formatos de retorno: debe preguntar.
+> ### Qué devuelve cada método (enunciado oficial)
+
+| Método | Req. | Devuelve |
+|---|---|---|
+| `Red(carpeta)` | carga | La red cargada desde los tres CSV, todas las estaciones abiertas. Solo se mide cuánto tarda. |
+| `red.estado(nombre)` | R1 | `"ABIERTA"`, `"CERRADA"` o `"NO EXISTE"` |
+| `red.autocompletar(prefijo, k)` | R2 | Lista de hasta k estaciones abiertas que empiezan por el prefijo, en orden alfabético (`[]` si no hay) |
+| `red.rango(desde, hasta)` | R3 | Lista de estaciones abiertas entre los dos nombres (inclusive), en orden alfabético |
+| `red.proximo_bus(estacion, ruta, hora)` | R4 | La hora `HH:MM` del siguiente bus de esa ruta en esa estación, o `None` si no hay más ese día |
+| `red.viaje(origen, destino)` | R5 | Lista de tramos `(ruta, sube_en, baja_en)`: 1 tramo si es directo, 2 si hay transbordo; el viaje que recorra menos paradas. `None` si no hay viaje |
+| `red.ranking(k)` | R6 | Lista de `(nombre, buses_por_dia)` de las k estaciones abiertas con más buses, de mayor a menor |
+| `red.agregar_parada(ruta, nueva, despues_de)` | R7 | `True` si la agregó justo después de `despues_de`, `False` si no se pudo |
+| `red.quitar_parada(ruta, estacion)` | R7 | `True` si la quitó, `False` si no estaba |
+| `red.recorrido(ruta, al_reves=False)` | R7 | Lista de nombres en orden (`[]` si la ruta no existe) |
+| `red.cerrar(nombre)` / `red.reabrir(nombre)` | R8 | `True` si cambió el estado, `False` si no existe o ya estaba así |
+| `red.deshacer()` / `red.rehacer()` | R9 | `True` si deshizo o rehizo algo, `False` si no había nada |
+| `simular_fila(llegadas, frecuencia, capacidad)` | R10 | Recibe segundos de llegada, segundos entre buses y cupo por bus. Devuelve, en el mismo orden de `llegadas`, el segundo en que salió el bus de cada persona. Los buses salen en `frecuencia`, `2*frecuencia`, … y la gente sube en orden de llegada |
+
+- El motor devuelve listas, tuplas, textos, números o booleanos; **nunca diccionarios ni conjuntos**.
+- Ejemplo de R10: `simular_fila([30, 5, 5, 70], 60, 2)` → `[120, 60, 60, 120]`.
+- El profesor mide el rendimiento en redes de **10.000, 20.000, 40.000 y 80.000 estaciones** (todas las operaciones menos R5).
 
 ---
 

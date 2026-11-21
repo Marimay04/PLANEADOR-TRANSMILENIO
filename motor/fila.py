@@ -57,18 +57,19 @@ def _primer_bus_desde(t, frecuencia):
 def simular_fila(llegadas, frecuencia, capacidad):
     """Simula la fila de una estación en hora pico.
 
-    - llegadas: minuto en que llega cada pasajero (números, o textos 'HH:MM').
-      No tiene que venir ordenada.
-    - frecuencia: cada cuántos minutos sale un bus. Los buses salen en
+    - llegadas: segundo en que llega cada pasajero. No tiene que venir
+      ordenada. (También acepta textos 'HH:MM', que se pasan a minutos.)
+    - frecuencia: segundos entre buses. Los buses salen en
       frecuencia, 2*frecuencia, 3*frecuencia, ...
     - capacidad: cupos de cada bus.
 
     Los pasajeros suben en orden de llegada (FIFO); quien llega justo en el
-    minuto de salida alcanza a subir; si dos llegan al mismo minuto, va
+    segundo de salida alcanza a subir; si dos llegan al mismo segundo, va
     primero el que aparece antes en la lista.
 
-    Devuelve una lista con la espera en minutos de cada pasajero (minuto de
-    salida de su bus - minuto de llegada), en el MISMO orden de `llegadas`.
+    Devuelve, en el MISMO orden de `llegadas`, el segundo en que salió el
+    bus de cada persona (así lo pide el contrato). Ejemplo del enunciado:
+    simular_fila([30, 5, 5, 70], 60, 2) -> [120, 60, 60, 120].
     [] si no hay pasajeros; None si frecuencia o capacidad no son positivas
     o alguna llegada no es válida.
 
@@ -86,8 +87,8 @@ def simular_fila(llegadas, frecuencia, capacidad):
     if p == 0:
         return []
 
-    # 1) Ordenar por (minuto, posición original). La posición desempata y
-    #    permite devolver las esperas en el orden de la lista recibida.
+    # 1) Ordenar por (segundo, posición original). La posición desempata y
+    #    permite devolver las salidas en el orden de la lista recibida.
     pares = []
     i = 0
     for t in llegadas:
@@ -99,7 +100,7 @@ def simular_fila(llegadas, frecuencia, capacidad):
     pares = merge_sort(pares)
 
     # 2) Simular bus por bus.
-    esperas = [0] * p
+    salidas = [0] * p
     cola = Cola()
     siguiente = 0      # próximo pasajero (en orden de llegada) por entrar a la fila
     ultimo_bus = 0
@@ -123,8 +124,8 @@ def simular_fila(llegadas, frecuencia, capacidad):
         suben = 0
         while suben < capacidad and not cola.vacia():
             j = cola.desencolar()
-            esperas[pares[j][1]] = salida - pares[j][0]
+            salidas[pares[j][1]] = salida
             suben = suben + 1
         ultimo_bus = bus
 
-    return esperas
+    return salidas

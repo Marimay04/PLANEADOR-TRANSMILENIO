@@ -12,9 +12,9 @@ El proyecto tiene dos partes:
 | Integrante | Requisitos |
 |---|---|
 | Marco Vargas | R1, R2, R3, R8 |
-| Juan Diego Castillo | R4, R5, R6 |
-| Mariana Mayorga | R7, R12 |
+| Juan Diego Castillo | R4, R5, R6, código de R7, app web |
 | Sebastian Pereira | R9, R10, R11 |
+| Mariana Mayorga | Pruebas de R7, R12 (README), Integrantes |
 
 El detalle de lo que hizo cada uno está en [integrantes.md](integrantes.md).
 

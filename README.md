@@ -32,7 +32,7 @@ Se abre en `http://localhost:8000` (en macOS o Linux: `python3 front/app.py`). P
 
 **Versión en línea (Netlify)**
 
-La misma app se publica como sitio estático: el motor corre dentro del navegador con [Pyodide](https://pyodide.org) (Python compilado para el navegador), así que es exactamente el mismo código de `motor/`. Netlify lee `netlify.toml` y en cada despliegue ejecuta `python3 front/construir_netlify.py`, que arma la carpeta `dist/` con la interfaz, el motor y los CSV. La primera carga tarda unos segundos mientras descarga Pyodide. El panel de rendimiento (R11) solo funciona en la versión local.
+La misma app se publica como sitio estático: el motor corre dentro del navegador con [Pyodide](https://pyodide.org) (Python compilado para el navegador), así que es exactamente el mismo código de `motor/`. Netlify lee `netlify.toml` y en cada despliegue ejecuta `python3 front/construir_netlify.py`, que arma la carpeta `dist/` con la interfaz, el motor y los CSV. También se puede publicar a mano: `py front/construir_netlify.py` y subir la carpeta `dist/` en Netlify (Deploys). La primera carga tarda unos segundos mientras descarga Pyodide. El panel de rendimiento (R11) solo funciona en la versión local.
 
 **Panel de rendimiento (R11)**
 
@@ -99,28 +99,28 @@ En cada requisito: qué usamos, cómo funciona, qué otra opción pensamos y por
 - **Cómo funciona:** se calcula la cubeta del nombre y se busca solo ahí. Si no aparece, la estación no existe; si aparece, su valor dice si está abierta o cerrada.
 - **Otra opción:** buscar con búsqueda binaria en el arreglo ordenado, que es O(log n). La descartamos porque R1 es la consulta que más se usa y la tabla hash la resuelve en tiempo constante.
 - **Complejidad:** O(1) en promedio, con *n* = número de estaciones.
-- **Al duplicar la red:** ×1,09.
+- **Al duplicar la red:** ×1,46 con consultas al azar; ×1,0 repitiendo la misma consulta (ver la nota en [Rendimiento](#rendimiento-r11)).
 
 ### R2 · Autocompletar
 - **Qué usamos:** un arreglo con todos los nombres en orden alfabético. Se ordena una sola vez al cargar con nuestro merge sort, porque las estaciones nunca se crean ni se borran.
 - **Cómo funciona:** los nombres que empiezan igual quedan juntos en el arreglo. Una búsqueda binaria encuentra el primero que es ≥ al prefijo y desde ahí se avanza, guardando solo los abiertos, hasta tener `k` o hasta que el nombre ya no empiece por el prefijo.
 - **Otra opción:** un trie (árbol de prefijos). Es muy bueno para prefijos, pero no ayuda con R3 y ocupa mucha más memoria; el arreglo ordenado sirve para los dos requisitos.
 - **Complejidad:** O(log n + k), con *n* = número de estaciones.
-- **Al duplicar la red:** ×1,18.
+- **Al duplicar la red:** ×1,16.
 
 ### R3 · Listar un rango
 - **Qué usamos:** el mismo arreglo ordenado de R2.
 - **Cómo funciona:** búsqueda binaria del primer nombre ≥ `desde` y se avanza mientras el nombre sea ≤ `hasta`, guardando los abiertos.
 - **Otra opción:** recorrer todas las estaciones, filtrar y ordenar el resultado: O(n log n) por consulta.
 - **Complejidad:** O(log n + m), con *n* = número de estaciones y *m* = nombres dentro del rango.
-- **Al duplicar la red:** ×1,13.
+- **Al duplicar la red:** ×1,15.
 
 ### R4 · Próximo bus
 - **Qué usamos:** una tabla hash con clave `"ruta|estacion"` que guarda las horas de esa ruta en esa estación, pasadas a minutos y ordenadas al cargar.
 - **Cómo funciona:** búsqueda binaria de la primera hora ≥ la hora pedida. Si la estación está cerrada, la ruta no para ahí o ya no hay más buses, devuelve `None`.
 - **Otra opción:** recorrer las horas una por una, O(h). Las troncales pasan cientos de veces al día, así que conviene la búsqueda binaria.
 - **Complejidad:** O(log h), con *h* = horas de esa ruta en esa estación. No depende del tamaño de la red.
-- **Al duplicar la red:** ×0,97.
+- **Al duplicar la red:** ×1,03.
 
 ### R5 · Planear un viaje
 - **Qué usamos:** las rutas como listas doblemente enlazadas; cada estación sabe en qué nodos de qué rutas aparece.
@@ -133,14 +133,14 @@ En cada requisito: qué usamos, cómo funciona, qué otra opción pensamos y por
 - **Cómo funciona:** las `k` primeras se sacan sin modificar el montículo, usando uno auxiliar pequeño que empieza en la raíz. Cuando se cierra, reabre o edita algo, solo se mueve la estación afectada.
 - **Otra opción:** contar y ordenar todas las estaciones en cada consulta, O(n log n). El ranking se consulta muy seguido y cambia poco, así que conviene tenerlo siempre listo.
 - **Complejidad:** consulta O(k log k); cada cambio O(log n), con *n* = estaciones abiertas.
-- **Al duplicar la red:** ×1,01.
+- **Al duplicar la red:** ×1,02.
 
 ### R7 · Editar rutas
 - **Qué usamos:** una lista doblemente enlazada por ruta y, en cada ruta, una tabla hash estación → nodo.
 - **Cómo funciona:** la tabla hash encuentra el nodo sin recorrer la ruta y se cambian sus enlaces para agregar o quitar la parada. El recorrido normal va de la cabeza siguiendo `sig`; el recorrido al revés va de la cola siguiendo `ant`.
 - **Otra opción:** guardar cada ruta en un arreglo. Insertar o quitar en la mitad obliga a correr los demás elementos, O(m), y los operadores editan rutas todo el tiempo.
 - **Complejidad:** agregar y quitar O(1) en promedio, más O(log n) para actualizar el ranking; recorrido O(m), con *m* = paradas de la ruta.
-- **Al duplicar la red:** agregar + quitar ×1,12; recorrido ×1,10.
+- **Al duplicar la red:** agregar + quitar ×1,08; recorrido ×1,07.
 
 ### R8 · Cerrar y reabrir estaciones
 - **Qué usamos:** la tabla hash de R1 (nombre → abierta o cerrada) y el montículo de R6.
@@ -157,43 +157,45 @@ En cada requisito: qué usamos, cómo funciona, qué otra opción pensamos y por
 
 - **Otra opción:** borrar la estación de todas las estructuras al cerrarla. Sacarla del arreglo ordenado cuesta O(n) y reabrirla obligaría a reconstruir sus rutas y horarios.
 - **Complejidad:** O(log n) por el montículo; la parte de la tabla hash es O(1). *n* = número de estaciones.
-- **Al duplicar la red:** ×1,07.
+- **Al duplicar la red:** ×1,06.
 
 ### R9 · Deshacer y rehacer
 - **Qué usamos:** dos pilas, una con los cambios hechos y otra con los deshechos.
 - **Cómo funciona:** cada cierre, reapertura o edición que sí cambió algo entra en la pila de hechos y vacía la de deshechos. Deshacer saca el último cambio, aplica la operación contraria y lo pasa a la otra pila; rehacer hace lo inverso. Al quitar una parada se guarda cuál era la anterior para poder ponerla de nuevo en su lugar.
 - **Otra opción:** guardar una copia completa de la red en cada cambio. Deshacer sería fácil, pero cada cambio costaría O(n) en tiempo y memoria.
 - **Complejidad:** O(1) por la pila más el costo de la operación contraria (O(log n) por el ranking).
-- **Al duplicar la red:** ×1,05.
+- **Al duplicar la red:** ×0,99.
 
 ### R10 · Fila de abordaje
 - **Qué usamos:** nuestro merge sort y una cola FIFO sobre un arreglo con un índice al frente (encolar y desencolar en O(1)).
 - **Cómo funciona:** se ordenan los pasajeros por segundo de llegada (y por su posición en la lista si llegan al mismo tiempo). Luego, bus por bus, entran a la cola los que ya llegaron y suben hasta llenar el cupo. Si la cola está vacía, se salta directo al bus que sirve al siguiente pasajero, sin simular buses vacíos.
 - **Otra opción:** usar `list.pop(0)` como cola. Cada salida corre toda la lista, así que con cientos de miles de pasajeros el total sería O(P²).
 - **Complejidad:** O(P log P), con *P* = pasajeros (por ordenar); la simulación en sí es O(P).
-- **Al duplicar los pasajeros:** ×2,43.
+- **Al duplicar los pasajeros:** ×2,42.
 
 ## Rendimiento (R11)
 
 El panel (`py front/panel_rendimiento.py`) genera redes de prueba de tamaño creciente con el mismo formato de los CSV, corre cada operación del motor, grafica el tiempo junto a la curva que esperábamos y explica cualquier diferencia ahí mismo.
 
-Medimos también con los tamaños que usa el profesor: redes de 10.000, 20.000, 40.000 y 80.000 estaciones. El valor es el promedio de cuánto se multiplica el tiempo cada vez que la red se duplica (≈ 1: no depende del tamaño; ≈ 2: lineal).
+Medimos también con los tamaños que usa el profesor: redes de 10.000, 20.000, 40.000 y 80.000 estaciones, con la mediana de varias repeticiones. El valor es el promedio de cuánto se multiplica el tiempo cada vez que la red se duplica (≈ 1: no depende del tamaño; ≈ 2: lineal); es la mediana de tres mediciones completas.
 
 | Operación | Esperado | Al duplicar |
 |---|---|---|
-| Cargar la red | O(n log n) | ×2,15 |
-| R1 `estado` | O(1) | ×1,09 |
-| R2 `autocompletar` (k = 5) | O(log n + k) | ×1,18 |
-| R3 `rango` (~10 resultados) | O(log n + m) | ×1,13 |
-| R4 `proximo_bus` | O(log h) | ×0,97 |
-| R6 `ranking` (k = 10) | O(k log k) | ×1,01 |
-| R7 `agregar_parada` + `quitar_parada` | O(log n) | ×1,12 |
-| R7 `recorrido` | O(m) | ×1,10 |
-| R8 `cerrar` + `reabrir` | O(log n) | ×1,07 |
-| R9 `deshacer` + `rehacer` | O(log n) | ×1,05 |
-| R10 `simular_fila` | O(P log P) | ×2,43 |
+| Cargar la red | O(n log n) | ×2,25 |
+| R1 `estado` | O(1) | ×1,46 (ver nota) |
+| R2 `autocompletar` (k = 5) | O(log n + k) | ×1,16 |
+| R3 `rango` (~10 resultados) | O(log n + m) | ×1,15 |
+| R4 `proximo_bus` | O(log h) | ×1,03 |
+| R6 `ranking` (k = 10) | O(k log k) | ×1,02 |
+| R7 `agregar_parada` + `quitar_parada` | O(log n) | ×1,08 |
+| R7 `recorrido` | O(m) | ×1,07 |
+| R8 `cerrar` + `reabrir` | O(log n) | ×1,06 |
+| R9 `deshacer` + `rehacer` | O(log n) | ×0,99 |
+| R10 `simular_fila` | O(P log P) | ×2,42 |
 
 R5 no aparece porque el enunciado no lo mide.
+
+**Nota sobre R1.** `estado` tarda menos de 1 µs, así que lo que más pesa no es el cálculo sino traer los datos de la memoria. Con consultas al azar sobre una red grande, la tabla ya no cabe en la memoria caché del procesador y cada consulta tarda un poco más (×1,46 al duplicar, y varía entre ×1,0 y ×1,6 de una medición a otra). Si se repite siempre la misma consulta, los datos quedan en caché y el tiempo es igual en las cuatro redes (×1,0): la operación es O(1); lo que crece es el costo de acceso a memoria, no el número de pasos.
 
 ## Manejo de los datos
 

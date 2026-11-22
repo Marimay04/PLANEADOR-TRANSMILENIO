@@ -1,0 +1,14 @@
+# Despliegue en Netlify: versión estática de la app.
+# El motor corre en el navegador con Pyodide (ver front/web/js/motor-worker.js).
+[build]
+  command = "python3 front/construir_netlify.py"
+  publish = "dist"
+
+[build.environment]
+  PYTHON_VERSION = "3.8"
+
+# Que el navegador no use una copia vieja del motor o de los datos.
+[[headers]]
+  for = "/py/*"
+  [headers.values]
+    Cache-Control = "no-cache"

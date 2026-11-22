@@ -10,7 +10,6 @@ motor: es solo un puente HTTP. Toda regla del sistema la resuelve el motor;
 aquí solo se llaman sus métodos del contrato y se pasan los resultados a
 JSON para el navegador.
 """
-import csv
 import json
 import os
 import subprocess
@@ -26,72 +25,19 @@ WEB = os.path.join(AQUI, "web")
 if RAIZ not in sys.path:
     sys.path.insert(0, RAIZ)
 
-from motor import Red, simular_fila  # noqa: E402
+# Las acciones están en front/acciones.py para que la versión de Netlify
+# (motor en el navegador con Pyodide) use exactamente el mismo código.
+from acciones import App  # noqa: E402
 
 CARPETA = sys.argv[1] if len(sys.argv) > 1 else os.path.join(RAIZ, "datos")
 PUERTO = int(os.environ.get("PUERTO", "8000"))
 
 print("Cargando la red desde", CARPETA, "...")
-red = Red(CARPETA)
+app = App(CARPETA)
+ESTACIONES = app.estaciones
+RUTAS = app.rutas
+ACCIONES = app.acciones
 candado = threading.Lock()      # el motor no es multihilo: una llamada a la vez
-
-
-def _leer_columna(archivo, columna):
-    """Lee una columna de un CSV (solo para saber qué nombres existen;
-    el contrato no tiene un método que liste estaciones o rutas)."""
-    vistos, salida = set(), []
-    with open(os.path.join(CARPETA, archivo), newline="", encoding="utf-8-sig") as f:
-        for fila in csv.DictReader(f):
-            fila = {k.strip().lower(): v for k, v in fila.items()}
-            valor = (fila.get(columna) or "").strip()
-            if valor and valor not in vistos:
-                vistos.add(valor)
-                salida.append(valor)
-    return salida
-
-
-ESTACIONES = _leer_columna("estaciones.csv", "nombre")
-RUTAS = _leer_columna("rutas.csv", "ruta")
-buses_conocidos = {}    # último valor visto de buses/día (para las cerradas)
-
-
-def foto_de_la_red():
-    """Estado completo para dibujar: estaciones, buses y recorridos."""
-    abiertas = red.ranking(len(ESTACIONES))
-    for nombre, buses in abiertas:
-        buses_conocidos[nombre] = buses
-    estaciones = []
-    for n in ESTACIONES:
-        estaciones.append({"nombre": n, "estado": red.estado(n),
-                           "buses": buses_conocidos.get(n, 0)})
-    rutas = [{"nombre": r, "paradas": red.recorrido(r)} for r in RUTAS]
-    return {"estaciones": estaciones, "rutas": rutas}
-
-
-def _num_lista(texto):
-    return [float(x) if "." in x else int(x)
-            for x in texto.replace(";", ",").replace(" ", ",").split(",") if x != ""]
-
-
-# Cada acción llama exactamente un método del contrato.
-ACCIONES = {
-    "red": lambda p: foto_de_la_red(),
-    "estado": lambda p: red.estado(p["nombre"]),
-    "autocompletar": lambda p: red.autocompletar(p.get("prefijo", ""), int(p.get("k", 8))),
-    "rango": lambda p: red.rango(p["desde"], p["hasta"]),
-    "proximo_bus": lambda p: red.proximo_bus(p["estacion"], p["ruta"], p["hora"]),
-    "viaje": lambda p: red.viaje(p["origen"], p["destino"]),
-    "ranking": lambda p: red.ranking(int(p.get("k", 10))),
-    "recorrido": lambda p: red.recorrido(p["ruta"], p.get("al_reves") in ("1", "true", True)),
-    "agregar_parada": lambda p: red.agregar_parada(p["ruta"], p["nueva"], p["despues_de"]),
-    "quitar_parada": lambda p: red.quitar_parada(p["ruta"], p["estacion"]),
-    "cerrar": lambda p: red.cerrar(p["nombre"]),
-    "reabrir": lambda p: red.reabrir(p["nombre"]),
-    "deshacer": lambda p: red.deshacer(),
-    "rehacer": lambda p: red.rehacer(),
-    "simular_fila": lambda p: simular_fila(_num_lista(p["llegadas"]),
-                                           int(p["frecuencia"]), int(p["capacidad"])),
-}
 
 
 class Manejador(SimpleHTTPRequestHandler):

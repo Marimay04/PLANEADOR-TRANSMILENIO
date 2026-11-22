@@ -1,18 +1,57 @@
 /* Utilidades del front: llamadas al motor, colores, avisos. */
 
-/** Llama una acción del motor a través de front/app.py. */
-export async function motor(accion, params = {}, metodo = 'GET') {
-  let url = '/api/' + accion;
-  const opciones = { method: metodo, headers: {} };
-  if (metodo === 'GET') {
-    const q = new URLSearchParams(params).toString();
-    if (q) url += '?' + q;
-  } else {
-    opciones.headers['Content-Type'] = 'application/json';
-    opciones.body = JSON.stringify(params);
+/* Dos formas de llegar al motor:
+ *  - local (py front/app.py): pedidos HTTP a /api/...
+ *  - estática (Netlify): el motor corre en el navegador dentro de
+ *    js/motor-worker.js (Pyodide). js/modo.js dice cuál se usa. */
+const ESTATICO = window.MODO_ESTATICO === true;
+let trabajador = null;
+let siguienteId = 0;
+const pendientes = new Map();
+
+function worker() {
+  if (!trabajador) {
+    trabajador = new Worker(new URL('./motor-worker.js', import.meta.url));
+    trabajador.onmessage = (e) => {
+      const m = e.data;
+      if (m.tipo === 'progreso') {
+        const el = document.getElementById('carga-texto');
+        if (el) el.textContent = m.texto;
+        return;
+      }
+      const resolver = pendientes.get(m.id);
+      if (resolver) { pendientes.delete(m.id); resolver(m.respuesta); }
+    };
   }
-  const r = await fetch(url, opciones);
-  const datos = await r.json();
+  return trabajador;
+}
+
+/** Llama una acción del motor (por front/app.py o por el worker de Pyodide). */
+export async function motor(accion, params = {}, metodo = 'GET') {
+  let datos;
+  if (ESTATICO) {
+    // GET manda los parámetros como texto (igual que la URL); POST conserva los tipos.
+    const p = {};
+    for (const [k, v] of Object.entries(params)) p[k] = metodo === 'GET' ? String(v) : v;
+    const id = ++siguienteId;
+    const texto = await new Promise((resolver) => {
+      pendientes.set(id, resolver);
+      worker().postMessage({ id, accion, params: p });
+    });
+    datos = JSON.parse(texto);
+  } else {
+    let url = '/api/' + accion;
+    const opciones = { method: metodo, headers: {} };
+    if (metodo === 'GET') {
+      const q = new URLSearchParams(params).toString();
+      if (q) url += '?' + q;
+    } else {
+      opciones.headers['Content-Type'] = 'application/json';
+      opciones.body = JSON.stringify(params);
+    }
+    const r = await fetch(url, opciones);
+    datos = await r.json();
+  }
   if (!datos.ok) throw new Error(datos.error || 'Error del motor');
   return datos.resultado;
 }

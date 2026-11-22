@@ -476,7 +476,7 @@ $('#btn-girar').addEventListener('click', (e) => {
 $('#btn-centrar').addEventListener('click', () => maqueta.vistaGeneral());
 $('#btn-panel').addEventListener('click', async () => {
   try { await motor('panel', {}, 'POST'); aviso('Se abrió el panel de rendimiento (R11) en otra ventana'); }
-  catch { aviso('No se pudo abrir el panel', 'error'); }
+  catch (e) { aviso(e.message || 'No se pudo abrir el panel', 'error'); }
 });
 
 iniciarHoraPico();

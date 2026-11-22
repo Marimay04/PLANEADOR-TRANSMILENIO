@@ -2,7 +2,7 @@
 
 | Integrante | Requisitos | Qué hizo |
 |---|---|---|
-| **Marco Vargas** | R1, R2, R3, R8 | Tabla hash propia (`motor/tabla_hash.py`), merge sort y búsqueda binaria (`motor/ordenamiento.py`), `estado`, `autocompletar`, `rango`, `cerrar` y `reabrir`. Decisiones de R8 en el README. |
-| **Juan Diego Castillo** | R4, R5, R6 | `proximo_bus`, `viaje` y `ranking`; estructuras de `motor/estructuras_viaje.py` (listas doblemente enlazadas de rutas, horarios ordenados y montículo máximo indexado). Pruebas de R9 y R10. |
-| **Mariana Mayorga** | R7, R12 | Editar rutas (`agregar_parada`, `quitar_parada`, `recorrido`) y sus pruebas (`tests/test_r7.py`). README de decisiones (R12) y contrato con los retornos oficiales. |
-| **Sebastian Pereira** | R9, R10, R11 | `deshacer` y `rehacer` con dos pilas, `simular_fila` con cola FIFO propia (`motor/fila.py`), panel de rendimiento (`front/panel_rendimiento.py`) y la app web (`front/`). |
+| **Marco Vargas** | R1, R2, R3, R8 | Estructura inicial del repositorio y datos (`datos/`). Tabla hash propia (`motor/tabla_hash.py`), merge sort y búsqueda binaria (`motor/ordenamiento.py`). `estado`, `autocompletar`, `rango`, `cerrar` y `reabrir`. Decisiones de R8 en el README. |
+| **Juan Diego Castillo** | R4, R5, R6, código de R7 | `proximo_bus`, `viaje` y `ranking`; estructuras de `motor/estructuras_viaje.py` (listas doblemente enlazadas de rutas, horarios ordenados y montículo máximo indexado). Código de `agregar_parada`, `quitar_parada` y `recorrido`, que comparte la lista doblemente enlazada con R5. App web con la maqueta 3D (`front/app.py`, `front/web/`). |
+| **Sebastian Pereira** | R9, R10, R11 | `deshacer` y `rehacer` con dos pilas, `simular_fila` con cola FIFO propia (`motor/fila.py`) y sus pruebas (`tests/test_r9.py`, `tests/test_r10.py`). Panel de rendimiento (`front/panel_rendimiento.py`, `front/rendimiento.py`, `tests/test_r11.py`). Integración de la app web en el repositorio. (confirmar: corrección de R9 y R10 al formato del contrato) |
+| **Mariana Mayorga** | Pruebas de R7, R12 | Creación del repositorio. Pruebas de R7 (`tests/test_r7.py`). README de decisiones (R12): secciones de R1, R2, R3 y R7, contrato con los retornos oficiales del enunciado y cómo arrancar la app. Revisión del motor contra el enunciado (detectó que R9 y R10 no devolvían el formato del contrato). |

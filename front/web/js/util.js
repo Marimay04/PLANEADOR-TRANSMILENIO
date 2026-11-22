@@ -102,8 +102,33 @@ function saltaParadas(a, b) {
   return pos[pos.length - 1] - pos[0] + 1 > a.length;
 }
 
+/* Nombre real de la ruta, SOLO para mostrar (H75-2 → H75). Al motor siempre
+ * se le pasa el código del CSV. Si de una misma ruta se muestran varias
+ * variantes (por ejemplo ida y regreso), se agrega "hacia DESTINO". */
+const destinos = new Map();        // código → última parada
+const variantesVisibles = new Map(); // nombre real → cuántas variantes se muestran
+
+function base(codigo) {
+  const m = /^(.+)-\d+$/.exec(codigo);
+  return m ? m[1] : codigo;
+}
+
+export function registrarRutas(todas, visibles) {
+  destinos.clear(); variantesVisibles.clear();
+  for (const r of todas) destinos.set(r.nombre, r.paradas[r.paradas.length - 1] || '');
+  for (const r of visibles) variantesVisibles.set(base(r.nombre), (variantesVisibles.get(base(r.nombre)) || 0) + 1);
+}
+
+export function nombreRuta(codigo) {
+  return base(codigo);
+}
+
+export function detalleRuta(codigo) {
+  return (variantesVisibles.get(base(codigo)) || 0) > 1 && destinos.get(codigo) ? 'hacia ' + destinos.get(codigo) : '';
+}
+
 export function chipRuta(nombre, pequeno = false) {
-  return `<span class="ruta-chip${pequeno ? ' pequeno' : ''}" style="background:${colorRuta(nombre)}" data-ruta="${esc(nombre)}">${esc(nombre)}</span>`;
+  return `<span class="ruta-chip${pequeno ? ' pequeno' : ''}" style="background:${colorRuta(nombre)}" data-ruta="${esc(nombre)}" title="${esc(nombre)} en los datos">${esc(nombreRuta(nombre))}</span>`;
 }
 
 export function esc(t) {

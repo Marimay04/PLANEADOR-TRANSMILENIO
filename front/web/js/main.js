@@ -4,7 +4,7 @@
 import { Maqueta } from './escena.js';
 import { calcularPosiciones } from './layout.js';
 import { iniciarHoraPico } from './horapico.js';
-import { aviso, chipRuta, colorRuta, esc, fmt, horaActual, motor, pildora, resaltar, rutasExpresas } from './util.js';
+import { aviso, chipRuta, colorRuta, detalleRuta, esc, fmt, horaActual, motor, nombreRuta, pildora, registrarRutas, resaltar, rutasExpresas } from './util.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -54,6 +54,7 @@ function guardarDatos(datos) {
   // no cambian, y si el motor propone una en un viaje, se muestra igual.
   estado.expresas = rutasExpresas(datos.rutas);
   estado.visibles = datos.rutas.filter((r) => !estado.expresas.has(r.nombre));
+  registrarRutas(datos.rutas, estado.visibles);   // nombres reales (H75-2 → H75)
 }
 
 function sugerirViajeInicial() {
@@ -107,7 +108,7 @@ const fuentes = {
     return [...abiertas.map((n) => ({ valor: n })), ...cerradas.map((e) => ({ valor: e.nombre, extra: 'cerrada' }))];
   },
   rutas: async (t) => estado.visibles.filter((r) => r.nombre.toUpperCase().startsWith(t)).slice(0, 10)
-    .map((r) => ({ valor: r.nombre, extra: r.paradas.length + ' paradas', ruta: true })),
+    .map((r) => ({ valor: r.nombre, extra: [detalleRuta(r.nombre), r.paradas.length + ' paradas'].filter(Boolean).join(' · '), ruta: true })),
 };
 
 function autocompletar(campo, alElegir) {
@@ -293,11 +294,11 @@ async function abrirTarjeta(nombre, volar = true) {
       <div class="dato"><b>${fmt(info.buses)}</b><span>buses al día</span></div>
       <div class="dato"><b>${abierta && puesto ? '#' + puesto : '—'}</b><span>en el ranking</span></div>
     </div>
-    <h4>Rutas que paran aquí · ${rutas.length}</h4>
-    <div class="rutas-est">${rutas.map((r) => chipRuta(r, true)).join('') || '<span class="tenue" style="color:var(--tenue)">Ninguna</span>'}</div>
+    <h4>Rutas que paran aquí · ${new Set(rutas.map(nombreRuta)).size}</h4>
+    <div class="rutas-est">${rutas.filter((r, i) => rutas.findIndex((x) => nombreRuta(x) === nombreRuta(r)) === i).map((r) => chipRuta(r, true)).join('') || '<span class="tenue" style="color:var(--tenue)">Ninguna</span>'}</div>
     ${rutas.length ? `<h4>Próximo bus · R4</h4>
     <div class="proximo">
-      <select id="tj-ruta">${rutas.map((r) => `<option>${esc(r)}</option>`).join('')}</select>
+      <select id="tj-ruta">${rutas.map((r) => `<option value="${esc(r)}">${esc(nombreRuta(r))}${detalleRuta(r) ? ' · ' + esc(detalleRuta(r)) : ''}</option>`).join('')}</select>
       <input id="tj-hora" type="time" value="${$('#hora-viaje').value || horaActual()}">
     </div>
     <div class="bus-proximo" id="tj-bus">…</div>` : ''}
@@ -351,7 +352,8 @@ async function cargarRecorrido(volar = true) {
   estado.rutaOp = ruta;
   const color = colorRuta(ruta);
   const editable = !estado.reves;
-  caja.innerHTML = `<div class="recorrido-cabeza">${chipRuta(ruta)}<span>${paradas.length} paradas · ${estado.reves ? 'al revés' : 'ida'}</span></div>
+  const detalle = estado.reves ? '' : detalleRuta(ruta);
+  caja.innerHTML = `<div class="recorrido-cabeza">${chipRuta(ruta)}<span>${detalle ? esc(detalle) + ' · ' : ''}${paradas.length} paradas · ${estado.reves ? 'al revés' : 'ida'}</span></div>
     <ol class="linea-ruta" style="--color-ruta:${color}">${paradas.map((n) => {
       const cerrada = estado.porNombre.get(n)?.estado !== 'ABIERTA';
       return `<li data-n="${esc(n)}"><div class="estacion-ruta ${cerrada ? 'cerrada' : ''}">

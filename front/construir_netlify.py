@@ -14,16 +14,37 @@ dentro del navegador (Pyodide) en vez del servidor de front/app.py.
 import glob
 import os
 import shutil
+import stat
+import time
 
 AQUI = os.path.dirname(os.path.abspath(__file__))
 RAIZ = os.path.dirname(AQUI)
 DIST = os.path.join(RAIZ, "dist")
 
 
+def _quitar_solo_lectura(funcion, ruta, _error):
+    os.chmod(ruta, stat.S_IWRITE)
+    funcion(ruta)
+
+
+def _borrar(carpeta):
+    """Borra la carpeta. En Windows, OneDrive o el explorador a veces la
+    bloquean un momento: se reintenta y, si sigue bloqueada, se deja y
+    luego se copia encima."""
+    for _ in range(5):
+        if not os.path.isdir(carpeta):
+            return
+        try:
+            shutil.rmtree(carpeta, onerror=_quitar_solo_lectura)
+            return
+        except OSError:
+            time.sleep(0.5)
+    print("Aviso: no se pudo borrar dist/ por completo; se copia encima.")
+
+
 def main():
-    if os.path.isdir(DIST):
-        shutil.rmtree(DIST)
-    shutil.copytree(os.path.join(AQUI, "web"), DIST)
+    _borrar(DIST)
+    shutil.copytree(os.path.join(AQUI, "web"), DIST, dirs_exist_ok=True)
 
     archivos = []
     grupos = [("motor", os.path.join(RAIZ, "motor", "*.py")),

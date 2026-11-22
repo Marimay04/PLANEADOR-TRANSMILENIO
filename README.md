@@ -349,14 +349,15 @@ Estructura sugerida (ajustable):
 
 ## Cómo arrancar la app
 
-> 📌 **TODO (grupo):** escribir aquí el **comando único** que arranca la app, por ejemplo:
->
-> ```bash
-> # ejemplo, reemplazar por el comando real
-> python front/app.py
-> ```
->
-> Incluir también cómo generar los CSV desde el GTFS y cómo instalar dependencias del front/conversión (nunca del motor).
+Desde la raíz del repositorio, **sin instalar nada** (solo Python 3 y un navegador):
+
+```bash
+python front/app.py          # en Windows también: py front/app.py
+```
+
+Se abre el navegador en `http://localhost:8000` con la app. Para usar otra red con el mismo formato: `python front/app.py ruta/a/la/carpeta`.
+
+Otros comandos:
 
 Ya disponible (desde la raíz del repositorio, sin instalar nada):
 

@@ -72,6 +72,36 @@ export function colorRuta(nombre) {
   return ZONALES[h % ZONALES.length];
 }
 
+/* Variantes expresas (solo para lo que MUESTRA la app; el motor y los CSV no
+ * cambian). En los CSV una misma ruta real viene partida en variantes con
+ * sufijo -1, -2… (G11-1, G11-2). Una variante es expresa si todas sus paradas
+ * están, en el mismo orden, en otra variante de la misma ruta, y esa otra
+ * para en más estaciones entre su primera y su última parada. */
+export function rutasExpresas(rutas) {
+  const grupos = new Map();
+  for (const r of rutas) {
+    const m = /^(.+)-\d+$/.exec(r.nombre);
+    const base = m ? m[1] : r.nombre;
+    if (!grupos.has(base)) grupos.set(base, []);
+    grupos.get(base).push(r);
+  }
+  const expresas = new Set();
+  for (const variantes of grupos.values()) {
+    for (const a of variantes) {
+      if (variantes.some((b) => b !== a && saltaParadas(a.paradas, b.paradas))) expresas.add(a.nombre);
+    }
+  }
+  return expresas;
+}
+
+function saltaParadas(a, b) {
+  if (a.length < 2) return false;
+  const pos = a.map((p) => b.indexOf(p));
+  if (pos.some((i) => i < 0)) return false;
+  for (let i = 1; i < pos.length; i++) if (pos[i] <= pos[i - 1]) return false;
+  return pos[pos.length - 1] - pos[0] + 1 > a.length;
+}
+
 export function chipRuta(nombre, pequeno = false) {
   return `<span class="ruta-chip${pequeno ? ' pequeno' : ''}" style="background:${colorRuta(nombre)}" data-ruta="${esc(nombre)}">${esc(nombre)}</span>`;
 }

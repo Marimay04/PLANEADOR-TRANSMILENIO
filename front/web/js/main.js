@@ -4,7 +4,7 @@
 import { Maqueta } from './escena.js';
 import { calcularPosiciones } from './layout.js';
 import { iniciarHoraPico } from './horapico.js';
-import { aviso, chipRuta, colorRuta, esc, fmt, horaActual, motor, pildora, resaltar } from './util.js';
+import { aviso, chipRuta, colorRuta, esc, fmt, horaActual, motor, pildora, resaltar, rutasExpresas } from './util.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -30,9 +30,9 @@ async function iniciar() {
     $('#carga-texto').textContent = 'Ubicando ' + fmt(datos.estaciones.length) + ' estaciones…';
     await new Promise((r) => setTimeout(r, 30));
     guardarDatos(datos);
-    const layout = calcularPosiciones(datos.estaciones.map((e) => e.nombre), datos.rutas);
-    maqueta.construir(datos, layout);
-    $('#resumen-red').textContent = `${fmt(datos.estaciones.length)} estaciones · ${fmt(datos.rutas.length)} rutas`;
+    const layout = calcularPosiciones(datos.estaciones.map((e) => e.nombre), estado.visibles);
+    maqueta.construir({ ...datos, rutas: estado.visibles }, layout);
+    $('#resumen-red').textContent = `${fmt(datos.estaciones.length)} estaciones · ${fmt(estado.visibles.length)} rutas`;
     pintarRanking();
     pintarCerradas();
     pintarHistorial();
@@ -49,6 +49,11 @@ function guardarDatos(datos) {
   estado.datos = datos;
   estado.recorridos = new Map(datos.rutas.map((r) => [r.nombre, r.paradas]));
   estado.porNombre = new Map(datos.estaciones.map((e) => [e.nombre, e]));
+  // La app no lista las variantes expresas (las que se saltan estaciones de
+  // otra variante de la misma ruta). Es solo presentación: el motor y los CSV
+  // no cambian, y si el motor propone una en un viaje, se muestra igual.
+  estado.expresas = rutasExpresas(datos.rutas);
+  estado.visibles = datos.rutas.filter((r) => !estado.expresas.has(r.nombre));
 }
 
 function sugerirViajeInicial() {
@@ -61,7 +66,7 @@ function sugerirViajeInicial() {
 async function refrescar() {
   const datos = await motor('red');
   guardarDatos(datos);
-  maqueta.actualizar(datos);
+  maqueta.actualizar({ ...datos, rutas: estado.visibles });
   pintarRanking();
   pintarCerradas();
   actualizarBotonAlternar();
@@ -101,7 +106,7 @@ const fuentes = {
     const cerradas = estado.datos.estaciones.filter((e) => e.estado !== 'ABIERTA' && e.nombre.startsWith(t)).slice(0, 4);
     return [...abiertas.map((n) => ({ valor: n })), ...cerradas.map((e) => ({ valor: e.nombre, extra: 'cerrada' }))];
   },
-  rutas: async (t) => estado.datos.rutas.filter((r) => r.nombre.toUpperCase().startsWith(t)).slice(0, 10)
+  rutas: async (t) => estado.visibles.filter((r) => r.nombre.toUpperCase().startsWith(t)).slice(0, 10)
     .map((r) => ({ valor: r.nombre, extra: r.paradas.length + ' paradas', ruta: true })),
 };
 
@@ -268,7 +273,7 @@ async function listarRango() {
 /* ================================================================ TARJETA DE ESTACIÓN */
 function rutasQuePasanPor(nombre) {
   const r = [];
-  for (const [ruta, paradas] of estado.recorridos) if (paradas.includes(nombre)) r.push(ruta);
+  for (const [ruta, paradas] of estado.recorridos) if (!estado.expresas.has(ruta) && paradas.includes(nombre)) r.push(ruta);
   return r.sort((a, b) => a.localeCompare(b, 'es', { numeric: true }));
 }
 

@@ -3,9 +3,12 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Planeador TransMilenio · Red 3D</title>
+  <title>Planeador · Trasmi-lleno</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700;800&display=swap">
   <link rel="stylesheet" href="css/app.css">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%228%22 fill=%22%23d7192d%22/%3E%3Crect x=%227%22 y=%2212%22 width=%2218%22 height=%223%22 rx=%221.5%22 fill=%22white%22/%3E%3Crect x=%227%22 y=%2218%22 width=%2211%22 height=%223%22 rx=%221.5%22 fill=%22%23f5b700%22/%3E%3C/svg%3E">
+  <link rel="icon" type="image/svg+xml" href="img/icono.svg">
   <script type="importmap">
     { "imports": { "three": "./vendor/three.module.min.js" } }
   </script>
@@ -16,11 +19,42 @@
 
   <!-- Pantalla de carga -->
   <div id="carga" class="carga">
-    <div class="carga-marca">
-      <span class="marca-icono" aria-hidden="true"><i></i><i></i></span>
-      <div>
-        <strong>Planeador</strong>
-        <span>TransMilenio</span>
+    <div class="logo">
+      <!-- El mismo dibujo de img/bus-lleno.svg, dentro de la página para animar las ruedas -->
+      <svg class="logo-bus" viewBox="0 0 240 132" aria-hidden="true">
+        <g class="bus-cuerpo">
+          <path class="bus-viento" d="M8 46q-4 14 0 28M232 46q4 14 0 28" fill="none" stroke="#1c1c20" stroke-width="3.5" stroke-linecap="round"/>
+          <path d="M30 24q85-8 170 0q12 1.2 14 13l4 50q1 13-12 13H26q-13 0-12-13l2-50q2-12 14-13z" fill="#c62f38" stroke="#1c1c20" stroke-width="4.5" stroke-linejoin="round"/>
+          <g stroke="#1c1c20" stroke-width="3.5" fill="#e9eaed">
+            <rect x="30" y="34" width="32" height="30" rx="5"/><rect x="68" y="34" width="32" height="30" rx="5"/>
+            <rect x="106" y="34" width="32" height="30" rx="5"/><rect x="182" y="34" width="22" height="30" rx="5"/>
+          </g>
+          <g fill="#1c1c20" class="bus-gente">
+            <circle cx="37" cy="51" r="5"/><circle cx="46" cy="47" r="5.4"/><circle cx="55" cy="51" r="5"/><rect x="32" y="55" width="28" height="7"/>
+            <circle cx="75" cy="50" r="5"/><circle cx="84" cy="54" r="5"/><circle cx="93" cy="48" r="5.2"/><rect x="70" y="55" width="28" height="7"/>
+            <circle cx="113" cy="51" r="5"/><circle cx="122" cy="46" r="5.4"/><circle cx="131" cy="51" r="5"/><rect x="108" y="55" width="28" height="7"/>
+            <circle cx="193" cy="49" r="6.5"/><rect x="184" y="56" width="18" height="6"/>
+          </g>
+          <path d="M30 76h100" stroke="#1c1c20" stroke-width="4.5" stroke-linecap="round"/>
+          <rect x="146" y="32" width="30" height="56" rx="4" fill="#1c1c20"/>
+          <rect x="149" y="35" width="24" height="22" rx="2" fill="#e9eaed"/>
+          <path d="M161 35v22" stroke="#1c1c20" stroke-width="3"/>
+          <circle cx="157" cy="46" r="5.5" fill="#1c1c20"/>
+          <g class="bus-colado">
+            <path d="M160 52q14-2 26-6" fill="none" stroke="#1c1c20" stroke-width="4" stroke-linecap="round"/>
+            <path d="M158 86l-3 18-8 1.5" fill="none" stroke="#1c1c20" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </g>
+        </g>
+        <g class="llanta"><circle cx="58" cy="102" r="14" fill="#1c1c20"/><circle cx="58" cy="102" r="5.5" fill="#e9eaed"/><path d="M58 90v6M58 108v6M46 102h6M64 102h6" stroke="#e9eaed" stroke-width="2"/></g>
+        <g class="llanta"><circle cx="190" cy="102" r="14" fill="#1c1c20"/><circle cx="190" cy="102" r="5.5" fill="#e9eaed"/><path d="M190 90v6M190 108v6M178 102h6M196 102h6" stroke="#e9eaed" stroke-width="2"/></g>
+        <g class="bus-mas1">
+          <circle cx="212" cy="16" r="13" fill="#1c1c20" stroke="#fff" stroke-width="3"/>
+          <text x="212" y="21.5" text-anchor="middle" font-family="Barlow Condensed, Arial Narrow, sans-serif" font-weight="700" font-size="15" fill="#fff">+1</text>
+        </g>
+      </svg>
+      <div class="logo-texto">
+        <strong class="logo-nombre" aria-label="Trasmi-lleno"><span class="l" style="--i:0">T</span><span class="l" style="--i:1">r</span><span class="l" style="--i:2">a</span><span class="l" style="--i:3">s</span><span class="l" style="--i:4">m</span><span class="l" style="--i:5">i</span><span class="rojo"><span class="l" style="--i:6">-</span><span class="l" style="--i:7">l</span><span class="l" style="--i:8">l</span><span class="l" style="--i:9">e</span><span class="l" style="--i:10">n</span><span class="l" style="--i:11">o</span></span></strong>
+        <span class="logo-lema">Siempre cabe uno más.</span>
       </div>
     </div>
     <div class="carga-barra"><i></i></div>
@@ -30,10 +64,10 @@
   <!-- Barra superior -->
   <header class="barra">
     <div class="marca">
-      <span class="marca-icono" aria-hidden="true"><i></i><i></i></span>
+      <img class="marca-icono" src="img/icono.svg" alt="">
       <div class="marca-texto">
         <strong>Planeador</strong>
-        <span id="resumen-red">TransMilenio</span>
+        <span><b>Trasmi-lleno</b> <span id="resumen-red"></span></span>
       </div>
     </div>
     <div class="barra-acciones">
@@ -170,8 +204,8 @@
         <div class="bloque-titulo"><h3>Historial</h3><span class="etiqueta-req">R9</span></div>
         <ol id="historial" class="historial"></ol>
         <div class="fila-botones">
-          <button class="boton-secundario" id="btn-deshacer-2">↶ Deshacer</button>
-          <button class="boton-secundario" id="btn-rehacer-2">Rehacer ↷</button>
+          <button class="boton-secundario" id="btn-deshacer-2">Deshacer</button>
+          <button class="boton-secundario" id="btn-rehacer-2">Rehacer</button>
         </div>
       </div>
     </section>
@@ -206,7 +240,7 @@
   <div class="controles-escena">
     <div class="leyenda">
       <span class="leyenda-torre" aria-hidden="true"></span>
-      <div><strong>Altura</strong> = buses por día<br><span class="tenue">Gris = estación cerrada</span></div>
+      <div><strong>Más alta, más buses al día</strong><br><span class="tenue">En gris, estaciones cerradas</span></div>
     </div>
     <div class="grupo-botones">
       <button class="boton-icono" id="btn-etiquetas" title="Mostrar u ocultar nombres" aria-label="Nombres">

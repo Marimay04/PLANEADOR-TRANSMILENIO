@@ -20,6 +20,23 @@ const estado = {
   tarjeta: null,
 };
 
+const INICIO = performance.now();
+
+/** Cuenta desde 0 hasta el número que ya tiene el elemento (solo decoración). */
+function contar(el) {
+  const meta = parseInt(el.textContent, 10);
+  if (!Number.isFinite(meta) || String(meta) !== el.textContent.trim()) return;
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const t0 = performance.now(), dur = 650;
+  const paso = (t) => {
+    const k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+    el.textContent = String(Math.round(meta * e));
+    if (k < 1) requestAnimationFrame(paso);
+  };
+  el.textContent = '0';
+  requestAnimationFrame(paso);
+}
+
 const maqueta = new Maqueta($('#escena'), { alSeleccionar: (n) => abrirTarjeta(n) });
 maqueta.alInteractuar = () => { if (maqueta.girando) { maqueta.setGiro(false); $('#btn-girar').classList.remove('activo'); } };
 
@@ -32,14 +49,21 @@ async function iniciar() {
     guardarDatos(datos);
     const layout = calcularPosiciones(datos.estaciones.map((e) => e.nombre), estado.visibles);
     maqueta.construir({ ...datos, rutas: estado.visibles }, layout);
-    $('#resumen-red').textContent = `${fmt(datos.estaciones.length)} estaciones · ${fmt(estado.visibles.length)} rutas`;
+    $('#resumen-red').textContent = `${fmt(datos.estaciones.length)} estaciones y ${fmt(estado.visibles.length)} rutas`;
     pintarRanking();
     pintarCerradas();
     pintarHistorial();
     sugerirViajeInicial();
     $('#btn-girar').classList.add('activo');
     $('#btn-etiquetas').classList.add('activo');
-    setTimeout(() => $('#carga').classList.add('fuera'), 250);
+    // Deja terminar la animación del logo antes de abrir la cortina
+    const falta = Math.max(250, 1900 - (performance.now() - INICIO));
+    setTimeout(() => {
+      $('#carga').classList.add('fuera');
+      document.body.classList.add('listo');
+      maqueta.intro();                         // cámara que llega y torres que crecen
+      maqueta.iniciarTrafico(estado.visibles); // buses circulando por la red
+    }, falta);
   } catch (e) {
     $('#carga-texto').textContent = 'No se pudo conectar con el motor. ¿Arrancaste con python front/app.py? (' + e.message + ')';
   }
@@ -162,6 +186,18 @@ $('#btn-intercambiar').addEventListener('click', () => {
   if (o.value && d.value) planear();
 });
 
+/** Si la ruta es una variante expresa, las estaciones por las que pasa sin
+ *  parar entre a y b (las que sí para su variante completa). Solo informativo. */
+function estacionesSinParar(ruta, a, b, seg) {
+  if (!estado.expresas.has(ruta)) return [];
+  for (const r of estado.visibles) {
+    if (nombreRuta(r.nombre) !== nombreRuta(ruta)) continue;
+    const i = r.paradas.indexOf(a), j = r.paradas.indexOf(b);
+    if (i >= 0 && j > i) return r.paradas.slice(i + 1, j).filter((n) => !seg.includes(n));
+  }
+  return [];
+}
+
 async function planear(silencioso = false) {
   const o = $('#origen').value.toUpperCase().trim(), d = $('#destino').value.toUpperCase().trim();
   const hora = $('#hora-viaje').value || horaActual();
@@ -169,7 +205,7 @@ async function planear(silencioso = false) {
   if (!o || !d) { if (!silencioso) aviso('Escribe el origen y el destino'); return; }
   $('#origen').value = o; $('#destino').value = d;
 
-  const [eo, ed, tramos] = await Promise.all([motor('estado', { nombre: o }), motor('estado', { nombre: d }), motor('viaje', { origen: o, destino: d })]);
+  let [eo, ed, tramos] = await Promise.all([motor('estado', { nombre: o }), motor('estado', { nombre: d }), motor('viaje', { origen: o, destino: d })]);
   $('#origen').classList.toggle('error', eo !== 'ABIERTA');
   $('#destino').classList.toggle('error', ed !== 'ABIERTA');
 
@@ -185,6 +221,7 @@ async function planear(silencioso = false) {
     return;
   }
 
+  // Se muestra exactamente el viaje que devolvió red.viaje() (R5).
   estado.viaje = tramos;
   const paradasDe = (ruta, a, b) => {
     const p = estado.recorridos.get(ruta) || [];
@@ -210,20 +247,25 @@ async function planear(silencioso = false) {
     </div><ol class="itinerario">`;
   tramos.forEach(([ruta, sube, baja], k) => {
     const color = colorRuta(ruta), seg = segs[k];
+    const sinParar = estacionesSinParar(ruta, sube, baja, seg);
     html += `<li class="parada-it ${k === 0 ? '' : 'transbordo'}"><div class="eje"><i class="punto"></i></div>
       <div><div class="nombre">${esc(sube)}</div><div class="detalle">${k === 0 ? 'Sube aquí' : 'Transbordo: cambia de bus'}</div></div></li>
       <li class="tramo-it"><div class="eje"><i style="background:${color}"></i></div><div class="caja">
-        <div class="tramo-cabeza">${chipRuta(ruta)}<span class="tenue">${seg.length - 1} ${seg.length === 2 ? 'parada' : 'paradas'} · hasta ${esc(baja)}</span></div>
+        <div class="tramo-cabeza">${chipRuta(ruta)}<span class="tenue">${seg.length - 1} ${seg.length === 2 ? 'parada' : 'paradas'} hasta ${esc(baja)}</span></div>
         <div class="bus-proximo"><svg class="reloj" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
           ${buses[k] ? `<span>Próximo bus <b>${buses[k]}</b>${k ? '<small> · desde la salida del primero</small>' : ''}</span>` : `<span>No hay más buses de esta ruta después de las ${esc(k ? (buses[k - 1] || hora) : hora)}</span>`}</div>
         ${seg.length > 2 ? `<button class="desplegar" data-k="${k}">Ver ${seg.length - 2} ${seg.length === 3 ? 'parada intermedia' : 'paradas intermedias'} ▾</button>
-          <ul class="paradas-intermedias" hidden>${seg.slice(1, -1).map((n) => `<li>${esc(n)}</li>`).join('')}</ul>` : ''}
+          <ul class="paradas-intermedias" hidden>${seg.slice(1, -1).map((n, j) => `<li style="--j:${j}">${esc(n)}</li>`).join('')}</ul>` : ''}
+        ${sinParar.length ? `<p class="sin-parar">Servicio expreso: pasa sin parar por ${sinParar.map(esc).join(', ')}.</p>` : ''}
       </div></li>`;
   });
   html += `<li class="parada-it final"><div class="eje"><i class="punto"></i></div>
       <div><div class="nombre">${esc(tramos[tramos.length - 1][2])}</div><div class="detalle">Llegaste</div></div></li></ol>
     <p class="metodo">Viaje: <code>red.viaje()</code> · próximo bus: <code>red.proximo_bus()</code> (búsqueda binaria en los horarios).</p>`;
   caja.innerHTML = html;
+  // Animación: cada parada y tramo entra en orden, y los números cuentan
+  $$('.itinerario > li', caja).forEach((li, i) => li.style.setProperty('--i', i));
+  $$('.resumen-viaje .dato b', caja).forEach(contar);
   $$('.desplegar', caja).forEach((b) => b.addEventListener('click', () => {
     const ul = b.nextElementSibling; ul.hidden = !ul.hidden;
     b.textContent = b.textContent.replace(ul.hidden ? '▴' : '▾', ul.hidden ? '▾' : '▴');
@@ -294,7 +336,7 @@ async function abrirTarjeta(nombre, volar = true) {
       <div class="dato"><b>${fmt(info.buses)}</b><span>buses al día</span></div>
       <div class="dato"><b>${abierta && puesto ? '#' + puesto : '—'}</b><span>en el ranking</span></div>
     </div>
-    <h4>Rutas que paran aquí · ${new Set(rutas.map(nombreRuta)).size}</h4>
+    <h4>${new Set(rutas.map(nombreRuta)).size === 1 ? '1 ruta para' : new Set(rutas.map(nombreRuta)).size + ' rutas paran'} aquí</h4>
     <div class="rutas-est">${rutas.filter((r, i) => rutas.findIndex((x) => nombreRuta(x) === nombreRuta(r)) === i).map((r) => chipRuta(r, true)).join('') || '<span class="tenue" style="color:var(--tenue)">Ninguna</span>'}</div>
     ${rutas.length ? `<h4>Próximo bus · R4</h4>
     <div class="proximo">
@@ -353,10 +395,10 @@ async function cargarRecorrido(volar = true) {
   const color = colorRuta(ruta);
   const editable = !estado.reves;
   const detalle = estado.reves ? '' : detalleRuta(ruta);
-  caja.innerHTML = `<div class="recorrido-cabeza">${chipRuta(ruta)}<span>${detalle ? esc(detalle) + ' · ' : ''}${paradas.length} paradas · ${estado.reves ? 'al revés' : 'ida'}</span></div>
-    <ol class="linea-ruta" style="--color-ruta:${color}">${paradas.map((n) => {
+  caja.innerHTML = `<div class="recorrido-cabeza">${chipRuta(ruta)}<span>${detalle ? esc(detalle) + ', ' : ''}${paradas.length} paradas, ${estado.reves ? 'al revés' : 'ida'}</span></div>
+    <ol class="linea-ruta" style="--color-ruta:${color}">${paradas.map((n, i) => {
       const cerrada = estado.porNombre.get(n)?.estado !== 'ABIERTA';
-      return `<li data-n="${esc(n)}"><div class="estacion-ruta ${cerrada ? 'cerrada' : ''}">
+      return `<li data-n="${esc(n)}" style="--i:${Math.min(i, 30)}"><div class="estacion-ruta ${cerrada ? 'cerrada' : ''}">
         <span class="nodo"><i></i></span><span class="nom">${esc(n)}</span>
         ${editable ? `<span class="acciones"><button class="agregar" title="Agregar una parada después de ${esc(n)}">${ICONO_MAS}</button>
         <button class="quitar" title="Quitar ${esc(n)} de la ruta">${ICONO_X}</button></span>` : ''}</div></li>`;

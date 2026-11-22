@@ -95,7 +95,7 @@ Entradas inválidas (estación o ruta que no existe, hora mal escrita, `k ≤ 0`
 En cada requisito: qué usamos, cómo funciona, qué otra opción pensamos y por qué no la elegimos, su complejidad (diciendo qué es *n*) y cuánto creció el tiempo al duplicar la red (ver [Rendimiento](#rendimiento-r11)).
 
 ### R1 · Buscar una estación
-- **Qué usamos:** una tabla hash propia. Las cubetas son un arreglo y cada cubeta es una lista de pares `[nombre, abierta]`. El nombre se convierte en número con `h = h·31 + código de cada letra`; cuando hay más nombres que cubetas, las cubetas se duplican y todo se reacomoda.
+- **Qué usamos:** una tabla hash propia. Las cubetas son un arreglo y cada cubeta es una lista de pares `[nombre, abierta]`. El nombre se convierte en número con `hash()` de Python (está en C y el texto guarda el resultado, así que no se recalcula; `dict` y `set` siguen sin usarse) y la cubeta se elige con los últimos bits de ese número, porque la cantidad de cubetas es potencia de 2. Cuando hay más nombres que cubetas, las cubetas se duplican y todo se reacomoda.
 - **Cómo funciona:** se calcula la cubeta del nombre y se busca solo ahí. Si no aparece, la estación no existe; si aparece, su valor dice si está abierta o cerrada.
 - **Otra opción:** buscar con búsqueda binaria en el arreglo ordenado, que es O(log n). La descartamos porque R1 es la consulta que más se usa y la tabla hash la resuelve en tiempo constante.
 - **Complejidad:** O(1) en promedio, con *n* = número de estaciones.

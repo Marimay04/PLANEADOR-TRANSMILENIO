@@ -120,7 +120,7 @@ function pintarAnden(c, dpr, t, llegO, salO, frecuencia, capacidad) {
   x.strokeStyle = '#ffffff'; x.setLineDash([10, 10]); x.lineWidth = 2;
   x.beginPath(); x.moveTo(0, 45); x.lineTo(W, 45); x.stroke(); x.setLineDash([]);
   x.fillStyle = '#ffffff'; x.fillRect(0, 74, W, H - 82);
-  x.fillStyle = '#d7192d'; x.fillRect(0, 70, W, 4);
+  x.fillStyle = '#c62f38'; x.fillRect(0, 70, W, 4);
 
   // Fila: quienes ya llegaron y aún no salen, en orden de llegada
   let n = 0;
@@ -133,10 +133,10 @@ function pintarAnden(c, dpr, t, llegO, salO, frecuencia, capacidad) {
     const col = Math.floor(k / filas), fila = k % filas;
     const px = W - 74 - col * gap, py = 86 + fila * gap;
     const prox = k < capacidad;                       // quienes caben en el próximo bus
-    x.fillStyle = prox ? '#d7192d' : '#9aa1ac';
+    x.fillStyle = prox ? '#c62f38' : '#9aa1ac';
     x.beginPath(); x.arc(px, py, r, 0, Math.PI * 2); x.fill();
   }
-  x.fillStyle = '#0f1419'; x.font = '600 12px ui-sans-serif, system-ui';
+  x.fillStyle = '#1c1c20'; x.font = '700 14px "Barlow Condensed", ui-sans-serif, system-ui';
   x.fillText(`${fmt(n)} en la fila${n > capVis ? ` (se muestran ${fmt(capVis)})` : ''}`, 10, 14);
 
   // Bus: llega, espera en el andén y sale en cada múltiplo de la frecuencia
@@ -149,14 +149,14 @@ function pintarAnden(c, dpr, t, llegO, salO, frecuencia, capacidad) {
   else if (u < 0.8 && t > 0) bx = -anchoBus - 20 + ((u - 0.18) / 0.62) * (parado + anchoBus + 20); // llegando
   else bx = parado;                                                                   // en el andén
   dibujarBus(x, bx, 26, anchoBus);
-  x.fillStyle = '#6b7280'; x.font = '600 11px ui-monospace, monospace';
+  x.fillStyle = '#6a7078'; x.font = '600 12px Barlow, ui-sans-serif, system-ui';
   x.textAlign = 'right'; x.fillText(`próximo bus ${mmss(salida)} · cupo ${fmt(capacidad)}`, W - 10, 14); x.textAlign = 'left';
 }
 
 function dibujarBus(x, bx, by, w) {
   const h = 36, mitad = w / 2 - 3;
   const caja = (ox) => {
-    x.fillStyle = '#d7192d'; redondeado(x, ox, by, mitad, h, 6); x.fill();
+    x.fillStyle = '#c62f38'; redondeado(x, ox, by, mitad, h, 6); x.fill();
     x.fillStyle = '#1d2731'; for (let i = 0; i < 4; i++) { redondeado(x, ox + 6 + i * (mitad - 12) / 4, by + 6, (mitad - 12) / 4 - 3, 11, 2); x.fill(); }
     x.fillStyle = '#ffffff'; x.fillRect(ox + 4, by + h - 9, mitad - 8, 2);
   };
@@ -178,7 +178,7 @@ function pintarGrafica(c, dpr, serie, maxFila, avance, fin) {
   const iz = 34, ab = 18, ar = 6;
   const px = (k) => iz + (k / (serie.length - 1)) * (W - iz - 6);
   const py = (v) => ar + (1 - v / maxFila) * (H - ab - ar);
-  x.strokeStyle = '#eef0f3'; x.lineWidth = 1; x.fillStyle = '#9aa1ac'; x.font = '10px ui-monospace, monospace';
+  x.strokeStyle = '#eef0f3'; x.lineWidth = 1; x.fillStyle = '#9aa1ac'; x.font = '11px Barlow, ui-sans-serif, system-ui';
   for (const v of [0, maxFila / 2, maxFila]) { x.beginPath(); x.moveTo(iz, py(v)); x.lineTo(W - 6, py(v)); x.stroke(); x.fillText(fmt(Math.round(v)), 2, py(v) + 3); }
   x.fillText('0:00', iz, H - 4); x.textAlign = 'right'; x.fillText(mmss(fin), W - 6, H - 4); x.textAlign = 'left';
   const grad = x.createLinearGradient(0, ar, 0, H - ab);
@@ -187,7 +187,7 @@ function pintarGrafica(c, dpr, serie, maxFila, avance, fin) {
   serie.forEach((v, k) => x.lineTo(px(k), py(v)));
   x.lineTo(px(serie.length - 1), py(0)); x.closePath(); x.fillStyle = grad; x.fill();
   x.beginPath(); serie.forEach((v, k) => (k ? x.lineTo(px(k), py(v)) : x.moveTo(px(k), py(v))));
-  x.strokeStyle = '#d7192d'; x.lineWidth = 1.6; x.stroke();
+  x.strokeStyle = '#c62f38'; x.lineWidth = 1.6; x.stroke();
   const cx = iz + avance * (W - iz - 6);
-  x.strokeStyle = '#0f1419'; x.lineWidth = 1; x.beginPath(); x.moveTo(cx, ar); x.lineTo(cx, H - ab); x.stroke();
+  x.strokeStyle = '#1c1c20'; x.lineWidth = 1; x.beginPath(); x.moveTo(cx, ar); x.lineTo(cx, H - ab); x.stroke();
 }

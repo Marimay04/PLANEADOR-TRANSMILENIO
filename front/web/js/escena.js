@@ -11,14 +11,16 @@ import { OrbitControls } from '../vendor/OrbitControls.js';
 import { CSS2DRenderer, CSS2DObject } from '../vendor/CSS2DRenderer.js';
 import { colorRuta } from './util.js';
 
-const C_FONDO = 0xeef0f4;
-const C_BASE = 0xf9fafb;
-const C_CARRIL = 0xd3d8df;
+const C_FONDO = 0xeeeff3;
+const C_SABANA = 0xc9d6b8;      // pasto de la sabana alrededor de la maqueta
+const C_HORIZONTE = 0xe9eeea;   // bruma del horizonte (niebla)
+const C_BASE = 0xf8f8fa;
+const C_CARRIL = 0xd2d4da;
 const C_ANDEN = 0xffffff;
 const C_CERRADA = 0xc4c9d1;
 const C_APAGADA = new THREE.Color(0xe4e7ec);
-const C_BAJA = new THREE.Color(0xf4b3ba);
-const C_ALTA = new THREE.Color(0xd7192d);
+const C_BAJA = new THREE.Color(0xeaa6ab);
+const C_ALTA = new THREE.Color(0xc62f38);
 const ALTURA_MAX = 10;
 
 const suavizar = (t) => (t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
@@ -60,8 +62,8 @@ export class Maqueta {
     this.contenedor.appendChild(this.etiquetas.domElement);
 
     const s = this.scene = new THREE.Scene();
-    s.background = new THREE.Color(C_FONDO);
-    s.fog = new THREE.Fog(C_FONDO, 170, 330);
+    s.background = this._cielo();
+    s.fog = new THREE.Fog(C_HORIZONTE, 150, 340);
 
     const cam = this.camara = new THREE.PerspectiveCamera(38, innerWidth / innerHeight, 0.5, 900);
     this.vistaInicial = { pos: new THREE.Vector3(-30, 92, 112), obj: new THREE.Vector3(0, 0, 4) };
@@ -76,7 +78,7 @@ export class Maqueta {
     c.screenSpacePanning = false;
 
     // Luz suave de maqueta
-    s.add(new THREE.HemisphereLight(0xffffff, 0xdfe3ea, 1.15));
+    s.add(new THREE.HemisphereLight(0xffffff, 0xe2e3e8, 1.15));
     const sol = this.sol = new THREE.DirectionalLight(0xffffff, 1.9);
     sol.position.set(55, 95, 40);
     sol.castShadow = true;
@@ -87,24 +89,25 @@ export class Maqueta {
     s.add(sol);
 
     // Suelo y mesa de la maqueta
-    const suelo = new THREE.Mesh(new THREE.PlaneGeometry(1200, 1200), new THREE.MeshStandardMaterial({ color: C_FONDO, roughness: 1 }));
+    const suelo = new THREE.Mesh(new THREE.PlaneGeometry(1200, 1200), new THREE.MeshStandardMaterial({ color: C_SABANA, roughness: 1 }));
     suelo.rotation.x = -Math.PI / 2; suelo.position.y = -0.62; suelo.receiveShadow = true;
     s.add(suelo);
     const mesa = new THREE.Mesh(new THREE.CylinderGeometry(70, 70.6, 0.6, 128), new THREE.MeshStandardMaterial({ color: C_BASE, roughness: .9 }));
     mesa.position.y = -0.3; mesa.receiveShadow = true;
     s.add(mesa);
-    const borde = new THREE.Mesh(new THREE.TorusGeometry(70.3, 0.09, 8, 160), new THREE.MeshBasicMaterial({ color: 0xd7192d }));
+    const borde = new THREE.Mesh(new THREE.TorusGeometry(70.3, 0.09, 8, 160), new THREE.MeshBasicMaterial({ color: 0xc62f38 }));
     borde.rotation.x = Math.PI / 2; borde.position.y = 0.0;
     s.add(borde);
 
     this._crearCerros();
+    this._crearEntorno();
 
     this.grupoRed = new THREE.Group();
     this.grupoResaltado = new THREE.Group();
     s.add(this.grupoRed, this.grupoResaltado);
 
     // Anillo de selección
-    this.anillo = new THREE.Mesh(new THREE.TorusGeometry(1, 0.06, 10, 64), new THREE.MeshBasicMaterial({ color: 0xd7192d }));
+    this.anillo = new THREE.Mesh(new THREE.TorusGeometry(1, 0.06, 10, 64), new THREE.MeshBasicMaterial({ color: 0xc62f38 }));
     this.anillo.rotation.x = Math.PI / 2; this.anillo.visible = false;
     s.add(this.anillo);
 
@@ -112,28 +115,150 @@ export class Maqueta {
     this.puntero = new THREE.Vector2();
   }
 
-  /* Cerros al oriente, como en Bogotá: un detalle de fondo. */
+  /* Cielo de la sabana: degradado de azul pálido a bruma en el horizonte. */
+  _cielo() {
+    const lienzo = document.createElement('canvas');
+    lienzo.width = 4; lienzo.height = 256;
+    const x = lienzo.getContext('2d');
+    const g = x.createLinearGradient(0, 0, 0, 256);
+    g.addColorStop(0, '#b9d3e6');
+    g.addColorStop(0.55, '#dde8ef');
+    g.addColorStop(1, '#eef1ee');
+    x.fillStyle = g; x.fillRect(0, 0, 4, 256);
+    const t = new THREE.CanvasTexture(lienzo);
+    t.colorSpace = THREE.SRGBColorSpace;
+    return t;
+  }
+
+  /* Cerros orientales, como en Bogotá, con Monserrate y su iglesia. */
   _crearCerros() {
-    const mat = new THREE.MeshStandardMaterial({ color: 0xe6ebe3, roughness: 1, flatShading: true });
-    const g = new THREE.Group();
+    const mats = [0x9db58a, 0x8faa7d, 0xa9bf96].map((c) => new THREE.MeshStandardMaterial({ color: c, roughness: 1, flatShading: true }));
+    const g = this.cerros = new THREE.Group();
     let semilla = 11;
     const rnd = () => ((semilla = (semilla * 16807) % 2147483647) / 2147483647);
-    for (let i = 0; i < 26; i++) {
-      const a = -0.95 + i * 0.075 + rnd() * 0.04;
-      const rad = 118 + rnd() * 14;
-      const geo = new THREE.IcosahedronGeometry(7 + rnd() * 6, 1);
+    this.zonasCerro = [];
+    let cima = null;
+    for (let i = 0; i < 30; i++) {
+      const a = -1.05 + i * 0.072 + rnd() * 0.04;
+      const rad = 128 + rnd() * 18;
+      const alto = 0.7 + rnd() * 0.45 + (i > 10 && i < 18 ? 0.5 : 0);   // más altos en el medio
+      const geo = new THREE.IcosahedronGeometry(9 + rnd() * 7, 1);
       const p = geo.attributes.position;
-      for (let k = 0; k < p.count; k++) p.setY(k, Math.max(0, p.getY(k)) * (0.45 + rnd() * 0.2));
+      for (let k = 0; k < p.count; k++) p.setY(k, Math.max(0, p.getY(k)) * alto);
       geo.computeVertexNormals();
-      const m = new THREE.Mesh(geo, mat);
+      const m = new THREE.Mesh(geo, mats[i % 3]);
       m.position.set(Math.cos(a) * rad + 20, -0.6, Math.sin(a) * rad);
-      m.scale.set(1.4, 1, 1);
+      m.scale.set(1.5, 1, 1.2);
       m.rotation.y = rnd() * Math.PI;
       m.receiveShadow = true;
       g.add(m);
+      if (i === 14) cima = m;
     }
     g.rotation.y = -0.2;
     this.scene.add(g);
+    g.updateMatrixWorld(true);
+    for (const m of g.children) {
+      const w = new THREE.Vector3(); m.getWorldPosition(w);
+      this.zonasCerro.push({ x: w.x, z: w.z, r: 26 });
+    }
+    // Monserrate: una iglesia blanca en la cima del cerro más alto
+    if (cima) {
+      cima.geometry.computeBoundingBox();
+      const tope = cima.geometry.boundingBox.max.y;
+      const w = new THREE.Vector3(); cima.getWorldPosition(w);
+      const blanco = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: .6 });
+      const iglesia = new THREE.Group();
+      const nave = new THREE.Mesh(new THREE.BoxGeometry(3, 2.2, 1.8), blanco); nave.position.y = 1.1;
+      const torre = new THREE.Mesh(new THREE.BoxGeometry(1, 3.6, 1), blanco); torre.position.set(1.6, 1.8, 0);
+      const techo = new THREE.Mesh(new THREE.ConeGeometry(0.8, 1.2, 4), new THREE.MeshStandardMaterial({ color: 0xb4562f, roughness: .8 }));
+      techo.position.set(1.6, 4.2, 0); techo.rotation.y = Math.PI / 4;
+      iglesia.add(nave, torre, techo);
+      iglesia.position.set(w.x, tope * 0.92 - 0.8, w.z);
+      this.scene.add(iglesia);
+    }
+  }
+
+  /* La ciudad alrededor de la maqueta: avenida, barrios de ladrillo, torres,
+     parques y nubes. Es solo decoración: no participa en los clics. */
+  _crearEntorno() {
+    let semilla = 7;
+    const rnd = () => ((semilla = (semilla * 16807) % 2147483647) / 2147483647);
+    const s = this.scene;
+    const libre = (x, z, margen = 0) => this.zonasCerro.every((c) => Math.hypot(x - c.x, z - c.z) > c.r + margen);
+
+    // Avenida que rodea la mesa, con línea central
+    const via = new THREE.Mesh(new THREE.RingGeometry(72.5, 77, 160), new THREE.MeshStandardMaterial({ color: 0x9a9da4, roughness: .95 }));
+    via.rotation.x = -Math.PI / 2; via.position.y = -0.58; via.receiveShadow = true;
+    const linea = new THREE.Mesh(new THREE.RingGeometry(74.65, 74.85, 160), new THREE.MeshBasicMaterial({ color: 0xf3f3f0 }));
+    linea.rotation.x = -Math.PI / 2; linea.position.y = -0.57;
+    const anden = new THREE.Mesh(new THREE.RingGeometry(77, 78.2, 160), new THREE.MeshStandardMaterial({ color: 0xdedcd6, roughness: 1 }));
+    anden.rotation.x = -Math.PI / 2; anden.position.y = -0.56;
+    s.add(via, linea, anden);
+
+    // Edificios: casas de ladrillo bajas y algunas torres hacia el "centro"
+    const colores = [0xb8673f, 0xc57a52, 0xa95a36, 0xd8cfc2, 0xcbc6bd, 0xe9e4da, 0xb06a4a];
+    const lotes = [];
+    for (let i = 0; i < 900 && lotes.length < 420; i++) {
+      const a = rnd() * Math.PI * 2;
+      const r = 81 + Math.pow(rnd(), 1.4) * 95;
+      const x = Math.cos(a) * r, z = Math.sin(a) * r;
+      if (!libre(x, z, 4)) continue;
+      const centro = Math.abs(a - 2.3) < 0.35 && r < 125;      // un sector con torres
+      const ancho = 2.2 + rnd() * 3.2, fondo = 2.2 + rnd() * 3.2;
+      const alto = centro ? 8 + rnd() * 16 : 1.4 + Math.pow(rnd(), 2) * 5;
+      lotes.push({ x, z, ancho, fondo, alto, giro: -a + (rnd() - .5) * .2, color: centro ? [0xd9d6d0, 0xbfc6cc, 0xe8e6e1][Math.floor(rnd() * 3)] : colores[Math.floor(rnd() * colores.length)] });
+    }
+    const edif = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial({ roughness: .85 }), lotes.length);
+    const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), eje = new THREE.Vector3(0, 1, 0), col = new THREE.Color();
+    lotes.forEach((l, i) => {
+      q.setFromAxisAngle(eje, l.giro);
+      m4.compose(new THREE.Vector3(l.x, -0.6 + l.alto / 2, l.z), q, new THREE.Vector3(l.ancho, l.alto, l.fondo));
+      edif.setMatrixAt(i, m4);
+      edif.setColorAt(i, col.setHex(l.color));
+    });
+    edif.receiveShadow = true;
+    s.add(edif);
+
+    // Árboles: copa redonda y tronco, entre los barrios y junto a la avenida
+    const arboles = [];
+    for (let i = 0; i < 700 && arboles.length < 320; i++) {
+      const a = rnd() * Math.PI * 2;
+      const r = i < 260 ? 79 + rnd() * 3 : 80 + Math.pow(rnd(), 1.2) * 100;
+      const x = Math.cos(a) * r, z = Math.sin(a) * r;
+      if (!libre(x, z, 0)) continue;
+      if (lotes.some((l) => Math.abs(l.x - x) < l.ancho * .7 && Math.abs(l.z - z) < l.fondo * .7)) continue;
+      arboles.push({ x, z, t: 0.8 + rnd() * 0.8 });
+    }
+    const copa = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1.3, 0), new THREE.MeshStandardMaterial({ roughness: 1, flatShading: true }), arboles.length);
+    const tronco = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.18, 0.24, 1.6, 5), new THREE.MeshStandardMaterial({ color: 0x7a5a42, roughness: 1 }), arboles.length);
+    const verdes = [0x6f9a5b, 0x5f8a4f, 0x7fa86a, 0x88ad6f];
+    arboles.forEach((t, i) => {
+      q.identity();
+      m4.compose(new THREE.Vector3(t.x, -0.6 + 0.8 * t.t, t.z), q, new THREE.Vector3(t.t, t.t, t.t));
+      tronco.setMatrixAt(i, m4);
+      m4.compose(new THREE.Vector3(t.x, -0.6 + 2.2 * t.t, t.z), q, new THREE.Vector3(t.t, t.t * 1.1, t.t));
+      copa.setMatrixAt(i, m4);
+      copa.setColorAt(i, col.setHex(verdes[i % verdes.length]));
+    });
+    s.add(tronco, copa);
+
+    // Nubes bajas que pasan despacio
+    const nubes = this.nubes = new THREE.Group();
+    const matNube = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, flatShading: true, transparent: true, opacity: .92 });
+    for (let i = 0; i < 9; i++) {
+      const nube = new THREE.Group();
+      const n = 3 + Math.floor(rnd() * 3);
+      for (let k = 0; k < n; k++) {
+        const b = new THREE.Mesh(new THREE.IcosahedronGeometry(3 + rnd() * 3, 1), matNube);
+        b.position.set(k * 4 - n * 2, rnd() * 1.5, (rnd() - .5) * 3);
+        b.scale.y = 0.6;
+        nube.add(b);
+      }
+      const a = rnd() * Math.PI * 2, r = 95 + rnd() * 80;
+      nube.position.set(Math.cos(a) * r, 48 + rnd() * 22, Math.sin(a) * r);
+      nubes.add(nube);
+    }
+    s.add(nubes);
   }
 
   /* ------------------------------------------------------------ red */
@@ -366,8 +491,54 @@ export class Maqueta {
 
   vistaGeneral() { this._volar(this.vistaInicial.pos.clone(), this.vistaInicial.obj.clone()); }
 
-  _volar(pos, obj) {
-    this.vuelo = { t: 0, desdeP: this.camara.position.clone(), desdeO: this.controles.target.clone(), haciaP: pos, haciaO: obj };
+  _volar(pos, obj, duracion = 1.1) {
+    this.vuelo = { t: 0, duracion, desdeP: this.camara.position.clone(), desdeO: this.controles.target.clone(), haciaP: pos, haciaO: obj };
+  }
+
+  /* ------------------------------------------------------------ entrada */
+  /** Secuencia de entrada: la cámara llega volando desde lo alto de la ciudad
+   *  y las torres crecen en ola desde el centro. Solo decoración. */
+  intro() {
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches || !this.torre) return;
+    this.camara.position.set(-150, 230, 250);
+    this.controles.target.set(0, 0, 0);
+    this._volar(this.vistaInicial.pos.clone(), this.vistaInicial.obj.clone(), 2.6);
+    let lejos = 1;
+    for (const p of this.pos.values()) lejos = Math.max(lejos, Math.hypot(p.x, p.z));
+    this.retrasos = new Float32Array(this.estaciones.length);
+    this.estaciones.forEach((e, i) => {
+      const p = this.pos.get(e.nombre);
+      this.retrasos[i] = 0.5 + (p ? Math.hypot(p.x, p.z) / lejos : 1) * 1.6;
+      this.alturas[i] = 0.02;
+    });
+    this.tiempoIntro = 0;
+    if (this.fijas) this.fijas.visible = false;   // los nombres aparecen cuando terminan de crecer
+    this._ubicarEstaciones();
+  }
+
+  /* ------------------------------------------------------------ tráfico */
+  /** Buses que circulan por la red mientras nadie consulta un viaje.
+   *  Usa las rutas más largas; se esconden cuando hay un viaje resaltado. */
+  iniciarTrafico(rutas, cantidad = 10) {
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    if (!this.grupoTrafico) { this.grupoTrafico = new THREE.Group(); this.scene.add(this.grupoTrafico); }
+    for (const b of this.trafico || []) this.grupoTrafico.remove(b.bus);
+    this.trafico = [];
+    const largas = [...rutas].filter((r) => r.paradas.length > 6).sort((a, b) => b.paradas.length - a.paradas.length);
+    const elegidas = [];
+    for (let i = 0; i < largas.length && elegidas.length < cantidad; i += 3) elegidas.push(largas[i]);
+    elegidas.forEach((r, k) => {
+      const pts = r.paradas.map((n) => this.pos.get(n)).filter(Boolean).map((p) => new THREE.Vector3(p.x, 0.06, p.z));
+      if (pts.length < 2) return;
+      const camino = new THREE.CatmullRomCurve3(pts, false, 'catmullrom', 0.05).getSpacedPoints(pts.length * 16);
+      const bus = this._modeloBus();
+      bus.scale.setScalar(0.72);
+      this.grupoTrafico.add(bus);
+      const dist = [0];
+      for (let i = 1; i < camino.length; i++) dist.push(dist[i - 1] + camino[i].distanceTo(camino[i - 1]));
+      const total = dist[dist.length - 1];
+      this.trafico.push({ bus, puntos: camino, dist, total, s: (k / elegidas.length) * total, pausa: 0, vel: 0.55 + (k % 3) * 0.12 });
+    });
   }
 
   /* ------------------------------------------------------------ resaltados */
@@ -440,8 +611,8 @@ export class Maqueta {
     this._enfocar(todas);
     this._marcar(primero[1], 'fuerte origen', primero[1]);
     this._marcar(ultimo[2], 'fuerte destino', ultimo[2]);
-    this._anilloEn(ultimo[2], 0xd7192d);
-    if (tramos.length === 2) { this._marcar(tramos[0][2], 'cambio', tramos[0][2]); this._anilloEn(tramos[0][2], 0xf5b700); }
+    this._anilloEn(ultimo[2], 0xc62f38);
+    if (tramos.length === 2) { this._marcar(tramos[0][2], 'cambio', tramos[0][2]); this._anilloEn(tramos[0][2], 0xf2b705); }
     this._agregarBus(camino, colorRuta(tramos[0][0]));
     this._ocultarDuplicadas();
     this.volarA(todas);
@@ -464,7 +635,7 @@ export class Maqueta {
   _modeloBus() {
     const t = this.tam * 1.55;
     const g = new THREE.Group();
-    const rojo = new THREE.MeshStandardMaterial({ color: 0xd7192d, roughness: 0.38 });
+    const rojo = new THREE.MeshStandardMaterial({ color: 0xc62f38, roughness: 0.38 });
     const vidrio = new THREE.MeshStandardMaterial({ color: 0x1d2731, roughness: 0.15, metalness: 0.3 });
     const blanco = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5 });
     const negro = new THREE.MeshStandardMaterial({ color: 0x1b1f24, roughness: 0.8 });
@@ -496,10 +667,10 @@ export class Maqueta {
     this.buses.push({ bus, puntos, dist, total: dist[dist.length - 1], s: 0, pausa: 0.8, color });
   }
 
-  _moverBuses(dt) {
+  _moverBuses(dt, lista = this.buses) {
     const vel = Math.max(8, this.tam * 9);
-    for (const b of this.buses) {
-      if (b.pausa > 0) { b.pausa -= dt; } else b.s += vel * dt;
+    for (const b of lista) {
+      if (b.pausa > 0) { b.pausa -= dt; } else b.s += vel * (b.vel || 1) * dt;
       if (b.s >= b.total) { b.s = b.total; b.pausa = 1.4; b.reiniciar = true; }
       if (b.reiniciar && b.pausa <= 0) { b.s = 0; b.reiniciar = false; b.pausa = 0.6; }
       let k = 1;
@@ -569,10 +740,11 @@ export class Maqueta {
   _animar() {
     requestAnimationFrame(() => this._animar());
     const dt = Math.min(0.05, this.reloj.getDelta());
+    if (this.nubes) this.nubes.rotation.y += dt * 0.012;
 
     if (this.vuelo) {
       const v = this.vuelo;
-      v.t = Math.min(1, v.t + dt / 1.1);
+      v.t = Math.min(1, v.t + dt / (v.duracion || 1.1));
       const k = suavizar(v.t);
       this.camara.position.lerpVectors(v.desdeP, v.haciaP, k);
       this.controles.target.lerpVectors(v.desdeO, v.haciaO, k);
@@ -582,11 +754,24 @@ export class Maqueta {
     // Torres que crecen o bajan con suavidad
     if (this.torre) {
       let cambio = false;
+      if (this.retrasos) this.tiempoIntro += dt;
+      let esperando = false;
       for (let i = 0; i < this.alturas.length; i++) {
+        if (this.retrasos && this.tiempoIntro < this.retrasos[i]) { esperando = true; continue; }
         const d = this.alturasMeta[i] - this.alturas[i];
-        if (Math.abs(d) > 0.002) { this.alturas[i] += d * Math.min(1, dt * 7); cambio = true; }
+        if (Math.abs(d) > 0.002) { this.alturas[i] += d * Math.min(1, dt * (this.retrasos ? 3.2 : 7)); cambio = true; }
+      }
+      if (this.retrasos && !esperando && !cambio) {
+        this.retrasos = null;
+        if (this.fijas) this.fijas.visible = this.etiquetasVisibles && !this.enfoque;
       }
       if (cambio) this._ubicarEstaciones();
+    }
+
+    // Tráfico de fondo: solo cuando no hay un viaje o una ruta resaltados
+    if (this.trafico) {
+      this.grupoTrafico.visible = !this.enfoque;
+      if (!this.enfoque) this._moverBuses(dt, this.trafico);
     }
 
     if (this.anillo.visible) {

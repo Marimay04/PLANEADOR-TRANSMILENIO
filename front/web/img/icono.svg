@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Trasmi-lleno">
+  <!-- base con grosor -->
+  <rect x="2" y="5" width="60" height="57" rx="15" fill="#9e1f28"/>
+  <rect x="2" y="2" width="60" height="56" rx="15" fill="#c62f38"/>
+  <!-- líneas de movimiento -->
+  <path d="M9.5 23.5q-2.6 7 0 14M54.5 23.5q2.6 7 0 14" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
+  <!-- carrocería -->
+  <path d="M16 17.5q16-2 32 0q3 .4 3.4 3.4L52 41q0 4-4 4H16q-4 0-4-4l.6-20.1q.4-3 3.4-3.4z" fill="#fff"/>
+  <!-- ventanas con gente -->
+  <rect x="16" y="20.5" width="32" height="12" rx="2.5" fill="#e9eaed"/>
+  <rect x="16" y="28" width="32" height="4.5" fill="#1c1c20"/>
+  <g fill="#1c1c20">
+    <circle cx="19.6" cy="26.4" r="2.6"/><circle cx="23.4" cy="25.4" r="2.6"/>
+    <circle cx="30.2" cy="26.4" r="2.6"/><circle cx="34" cy="25.6" r="2.6"/>
+    <circle cx="40.6" cy="26.2" r="2.6"/><circle cx="44.4" cy="25.6" r="2.6"/>
+  </g>
+  <rect x="26.6" y="20.5" width="1.3" height="12" fill="#fff"/>
+  <rect x="37.1" y="20.5" width="1.3" height="12" fill="#fff"/>
+  <!-- franja -->
+  <rect x="17.5" y="35" width="29" height="3" rx="1.5" fill="#c62f38"/>
+  <!-- llantas -->
+  <circle cx="23" cy="45" r="5.6" fill="#1c1c20"/><circle cx="23" cy="45" r="2" fill="#fff"/>
+  <circle cx="41" cy="45" r="5.6" fill="#1c1c20"/><circle cx="41" cy="45" r="2" fill="#fff"/>
+</svg>

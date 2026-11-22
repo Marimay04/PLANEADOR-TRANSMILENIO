@@ -58,7 +58,7 @@ export async function motor(accion, params = {}, metodo = 'GET') {
 
 /* Un color por troncal (primera letra de la ruta). */
 const PALETA = {
-  A: '#2563c9', B: '#2f9e57', C: '#e09b00', D: '#7a42b8', E: '#8a6a3f', F: '#d7192d',
+  A: '#2563c9', B: '#2f9e57', C: '#e09b00', D: '#7a42b8', E: '#8a6a3f', F: '#c8102e',
   G: '#1f8fd6', H: '#e0661c', J: '#c2185b', K: '#6b8e23', L: '#00897b', M: '#5462c0',
 };
 const ZONALES = ['#0e9fb0', '#3d7ea6', '#5f8f7a', '#8a7cc2', '#b07a4a', '#4f9d9d', '#7d8597', '#a0699a'];
